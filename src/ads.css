@@ -1,0 +1,132 @@
+/* Rewarded ads: the Free Gift button, the rewards window and the boost chip. */
+.hud-btn.gift {
+  background: repeating-linear-gradient(-55deg, #ffb13b 0 0.7em, #f59e22 0.7em 1.4em);
+}
+.hud-btn.gift .gift-ico {
+  flex: none;
+  font-size: 1.9em;
+  line-height: 1;
+  width: 1.4em;
+  filter: drop-shadow(0 0.08em 0 rgba(0, 0, 0, 0.35));
+}
+.hud-btn[hidden] {
+  display: none;
+}
+
+.ads-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  background: rgba(8, 10, 24, 0.55);
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+.ads-overlay.on {
+  display: flex;
+}
+.ads-card {
+  position: relative;
+  width: min(440px, 100%);
+  max-height: 100%;
+  overflow: auto;
+  padding: 14px 14px 12px;
+  border-radius: 18px;
+  background: #2a2f55;
+  border: 3px solid #fff;
+  box-shadow: 0 8px 0 rgba(0, 0, 0, 0.35);
+  font-family: Fredoka, sans-serif;
+  color: #fff;
+}
+.ads-title {
+  text-align: center;
+  font-size: clamp(1.3rem, 4.5vw, 1.7rem);
+  font-weight: 700;
+  padding: 2px 44px 10px;
+}
+.ads-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: #ff4f5e;
+  color: #fff;
+  font: 700 1.2rem Fredoka, sans-serif;
+  cursor: pointer;
+}
+.ads-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ads-reward {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 14px;
+  background: #3b4280;
+  color: #fff;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ads-reward:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.ads-reward .ico {
+  font-size: 2rem;
+  flex: none;
+}
+.ads-reward .txt {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ads-reward b {
+  font-size: 1.1rem;
+}
+.ads-reward small {
+  opacity: 0.8;
+  font-size: 0.85rem;
+}
+.ads-reward .go {
+  flex: none;
+  min-width: 78px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: #4fd23a;
+  font-weight: 700;
+}
+.ads-note {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.hud-adboost {
+  align-self: flex-start;
+  padding: 0.15em 0.6em;
+  border-radius: 1em;
+  background: #ff9a2e;
+  color: #fff;
+  font-weight: 700;
+  font-size: calc(var(--u) * 1.15);
+}
+.hud-adboost[hidden] {
+  display: none;
+}

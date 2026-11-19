@@ -1,0 +1,431 @@
+/* ============================== Index window ============================== */
+.win.win-index {
+  width: min(96vw, 1000px);
+  height: min(88dvh, 720px);
+  max-height: none;
+  background: linear-gradient(#2a2440, #17142a);
+}
+.win.win-index .win-head {
+  background: repeating-linear-gradient(-55deg, #c25cff 0 0.9em, #b04aff 0.9em 1.8em);
+}
+.win.win-index .win-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0.7em;
+  display: flex;
+}
+.ix {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(11em, 17em);
+  gap: 0.8em;
+}
+.ix-list {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  padding-right: 0.3em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8em;
+}
+.ix-list::-webkit-scrollbar {
+  width: 0.55em;
+}
+.ix-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 1em;
+}
+
+/* One area: scenery strip + cards */
+.ix-area {
+  display: grid;
+  grid-template-columns: minmax(5.5em, 9.5em) minmax(0, 1fr);
+  gap: 0.6em;
+  padding: 0.55em;
+  border-radius: 0.9em;
+  background: rgba(0, 0, 0, 0.32);
+  border: 0.2em solid #0d1220;
+  box-shadow: inset 0 0 0 0.12em color-mix(in srgb, var(--b1) 40%, transparent);
+}
+.ix-area.done {
+  box-shadow: inset 0 0 0 0.16em #7dff4a, 0 0 1.2em rgba(125, 255, 74, 0.25);
+}
+.ix-art {
+  position: relative;
+  border-radius: 0.6em;
+  overflow: hidden;
+  border: 0.18em solid #0d1220;
+  min-height: 9em;
+  background: var(--b2);
+}
+.ix-art img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ix-art::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(transparent 55%, rgba(0, 0, 0, 0.55));
+}
+.ix-art-tag {
+  position: absolute;
+  top: 0.35em;
+  left: 0.4em;
+  z-index: 1;
+  font-size: 0.8em;
+  padding: 0.1em 0.45em;
+  border-radius: 0.5em;
+  background: var(--b1);
+}
+.ix-art-name {
+  position: absolute;
+  left: 0.3em;
+  right: 0.3em;
+  bottom: 0.35em;
+  z-index: 1;
+  text-align: center;
+  font-size: 1.05em;
+  line-height: 1.05;
+}
+.ix-area.locked .ix-art img {
+  filter: grayscale(0.7) brightness(0.55);
+}
+.ix-lock {
+  position: absolute;
+  top: 42%;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  text-align: center;
+  font-size: 0.85em;
+}
+.ix-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  min-width: 0;
+}
+.ix-cards {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr)); /* ten girls: two rows of five */
+  gap: 0.45em;
+}
+
+/* A girl's card */
+.ix-card {
+  --c1: #c9ced8;
+  --c2: #5d6474;
+  position: relative;
+  aspect-ratio: 1;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 0.55em;
+  border: 0.18em solid #0d1220;
+  background: linear-gradient(160deg, var(--c1), var(--c2));
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: inset 0 0.18em 0 rgba(255, 255, 255, 0.3), 0 0.15em 0 rgba(0, 0, 0, 0.4);
+  transition: transform 0.12s;
+  font: inherit;
+  color: #fff;
+}
+.ix-card:hover {
+  transform: translateY(-0.12em);
+}
+.ix-card:active {
+  transform: scale(0.95);
+}
+.ix-card.sel {
+  border-color: #fff;
+  box-shadow: 0 0 0 0.15em #fff, 0 0 1em var(--rc);
+  z-index: 1;
+}
+.ix-card img {
+  position: absolute;
+  inset: 8% 0 0 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 0.25s, transform 0.25s;
+}
+.ix-card img.in {
+  opacity: 1;
+  transform: none;
+}
+.ix-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(transparent 60%, rgba(0, 0, 0, 0.45));
+  pointer-events: none;
+}
+.ix-card.unknown img {
+  opacity: 0.92;
+}
+.ix-q {
+  position: absolute;
+  top: 0.15em;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  text-align: center;
+  font-size: 0.82em;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 0.15em;
+}
+.ix-card.unknown .ix-q {
+  font-size: 1.15em;
+  letter-spacing: 0.05em;
+}
+.ix-new {
+  position: absolute;
+  right: -0.1em;
+  bottom: 0.15em;
+  z-index: 2;
+  font-size: 0.7em;
+  padding: 0.05em 0.35em;
+  border-radius: 0.4em;
+  background: #ff3b6b;
+  transform: rotate(-8deg);
+  animation: ixNew 0.9s ease-in-out infinite alternate;
+}
+@keyframes ixNew {
+  to { transform: rotate(-8deg) scale(1.15); }
+}
+.ix-own {
+  position: absolute;
+  left: 0.3em;
+  bottom: 0.3em;
+  z-index: 2;
+  width: 0.7em;
+  height: 0.7em;
+  border-radius: 50%;
+  background: #7dff4a;
+  border: 0.12em solid #0d1220;
+}
+
+/* Divine and up: a light sweep across the card */
+.shimmer {
+  position: relative;
+}
+.ix-card.shimmer::before,
+.ix-detail.shimmer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.55) 45%, rgba(255, 200, 255, 0.35) 52%, transparent 65%);
+  background-size: 250% 100%;
+  animation: ixShine 2.4s linear infinite;
+  mix-blend-mode: screen;
+}
+@keyframes ixShine {
+  from { background-position: 120% 0; }
+  to { background-position: -120% 0; }
+}
+
+/* Progress */
+.ix-prog {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  flex-wrap: wrap;
+}
+.ix-prog .bar {
+  position: relative;
+  flex: 1;
+  min-width: 8em;
+  height: 1.7em;
+  border-radius: 0.6em;
+  background: rgba(0, 0, 0, 0.45);
+  border: 0.16em solid #0d1220;
+  overflow: hidden;
+}
+.ix-prog .bar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: linear-gradient(#a8ff5a, #4fd23a);
+  box-shadow: inset 0 0.2em 0 rgba(255, 255, 255, 0.35);
+  transition: width 0.4s;
+}
+.ix-prog .bar span {
+  position: relative;
+  display: block;
+  text-align: center;
+  line-height: 1.45em;
+  font-size: 1.1em;
+}
+.ix-prog small {
+  font-size: 0.85em;
+  color: #ffe14a;
+}
+.ix-area.done .ix-prog small {
+  color: #7dff4a;
+}
+
+/* Detail panel */
+.ix-detail {
+  --c1: #4fb4ff;
+  --c2: #123a6a;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.7em;
+  border-radius: 0.9em;
+  border: 0.22em solid #0d1220;
+  background: linear-gradient(170deg, var(--c1), var(--c2));
+  overflow: hidden;
+  min-height: 0;
+  box-shadow: inset 0 0.25em 0 rgba(255, 255, 255, 0.3);
+}
+.ix-portrait {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 0.8;
+  max-height: 60%;
+  border-radius: 0.6em;
+  border: 0.2em solid #0d1220;
+  background: radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.45), rgba(0, 0, 0, 0.25) 70%), var(--c2);
+  overflow: hidden;
+}
+.ix-portrait img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+.ix-portrait img.in {
+  opacity: 1;
+  animation: ixBob 3s ease-in-out infinite;
+}
+@keyframes ixBob {
+  50% { transform: translateY(-2.5%) scale(1.02); }
+}
+.ix-glow {
+  position: absolute;
+  inset: auto 10% -30% 10%;
+  height: 50%;
+  background: radial-gradient(closest-side, var(--rc), transparent);
+  opacity: 0.6;
+  pointer-events: none;
+}
+.ix-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.15em;
+  z-index: 2;
+}
+.ix-name {
+  font-size: 1.75em;
+  line-height: 1.05;
+}
+.ix-rarity {
+  font-size: 1.3em;
+  color: var(--rc);
+}
+.ix-odds {
+  font-size: 1.3em;
+  color: #ffe14a;
+}
+.ix-odds em {
+  font-style: normal;
+  color: #fff;
+  margin: 0 0.15em;
+}
+.ix-odds .inc {
+  color: #7dff4a;
+}
+.ix-where {
+  font-size: 0.85em;
+  opacity: 0.9;
+}
+
+/* Phones (portrait) and short screens: the detail becomes a strip on top */
+@media (max-width: 640px), (max-height: 430px) {
+  .ix {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 0.5em;
+  }
+  .ix-detail {
+    order: -1;
+    flex-direction: row;
+    padding: 0.45em;
+  }
+  .ix-portrait {
+    width: 6.2em;
+    flex: none;
+    max-height: none;
+  }
+  .ix-info {
+    flex: 1;
+    align-items: flex-start;
+    text-align: left;
+  }
+  .ix-name {
+    font-size: 1.4em;
+  }
+  .ix-rarity,
+  .ix-odds {
+    font-size: 1.05em;
+  }
+  .ix-area {
+    grid-template-columns: 4.8em minmax(0, 1fr);
+    gap: 0.45em;
+    padding: 0.4em;
+  }
+  .ix-art-name {
+    font-size: 0.8em;
+  }
+  .ix-cards {
+    gap: 0.3em;
+  }
+}
+@media (max-height: 430px) and (min-width: 641px) {
+  .ix {
+    grid-template-columns: minmax(0, 1fr) 13em;
+    grid-template-rows: none;
+  }
+  .ix-detail {
+    order: 0;
+    flex-direction: column;
+  }
+  .ix-portrait {
+    width: 100%;
+    max-height: 45%;
+  }
+}
+/* Landscape phones: each area's ten girls in one row, so a page shows several areas */
+@media (max-height: 430px) {
+  .ix-cards {
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+  }
+  .ix-area {
+    grid-template-columns: 5.5em minmax(0, 1fr);
+  }
+  .ix-art {
+    min-height: 6.5em;
+  }
+}

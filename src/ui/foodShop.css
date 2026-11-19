@@ -1,0 +1,494 @@
+/* Food Shop window (ui/foodShop.js). Red studded title bar, dark-green studded panel, one
+   row of tall rarity cards with chunky outlined text and striped buttons. Card text scales
+   with the card (container query units), so it reads the same on a phone and a monitor. */
+.food-win {
+  --ink: #15110d;
+  --stud: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Crect x='2.5' y='2.5' width='11' height='11' rx='2' fill='rgba(255,255,255,0.07)' stroke='rgba(0,0,0,0.13)' stroke-width='1.1'/%3E%3C/svg%3E");
+  width: min(94vw, 1100px);
+  max-height: min(94dvh, 780px);
+  border: 0.28em solid var(--ink);
+  border-radius: 0.4em;
+  background: var(--stud) 0 0 / 1.1em 1.1em, linear-gradient(#3f5e22, #2e4818);
+  box-shadow: 0 0.45em 0 rgba(0, 0, 0, 0.35), 0 1.4em 3.4em rgba(0, 0, 0, 0.4);
+}
+.food-win .win-head {
+  padding: 0.5em 0.6em 0.5em 1.1em;
+  background:
+    var(--stud) 0 0 / 1.1em 1.1em,
+    linear-gradient(100deg, transparent 52%, rgba(255, 255, 255, 0.12) 52% 60%, transparent 60%),
+    linear-gradient(#ff6d6d 0%, #f24848 48%, #e1343c 52%, #cf2a33 100%);
+  border-bottom: 0.26em solid var(--ink);
+  box-shadow: inset 0 0.2em 0 rgba(255, 255, 255, 0.3);
+}
+.food-win .win-head h2 {
+  font-size: clamp(2em, 3.6em, 9vw);
+  line-height: 1.05;
+  color: #fff;
+  -webkit-text-stroke: 0.12em var(--ink);
+  text-shadow: 0 0.07em 0 rgba(0, 0, 0, 0.45);
+  letter-spacing: 0.005em;
+}
+.food-win .win-head .sub {
+  display: none;
+}
+.food-win .win-x {
+  width: 3.7em;
+  height: 3.7em;
+  border-radius: 0.28em;
+  border: 0.22em solid var(--ink);
+  background: linear-gradient(#ff5c5c 0 48%, #e52c2c 52% 100%);
+  box-shadow: inset 0 0.18em 0 rgba(255, 255, 255, 0.4), inset 0 -0.18em 0 rgba(0, 0, 0, 0.2);
+}
+.food-win .win-x {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.food-win .win-x svg {
+  display: none;
+}
+.food-win .win-x::after {
+  content: 'X';
+  font-size: 2.3em;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  paint-order: stroke fill;
+  -webkit-text-stroke: 0.13em var(--ink);
+  text-shadow: 0 0.07em 0 rgba(0, 0, 0, 0.35);
+}
+.food-win .win-x:active {
+  transform: scale(0.92);
+}
+.food-win .win-body {
+  overflow: hidden;
+  padding: 0.75em 0.75em 0.45em;
+  touch-action: pan-x;
+}
+
+.fs-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  min-height: 0;
+}
+.fs-track {
+  --gap: 0.85em;
+  display: flex;
+  gap: var(--gap);
+  height: clamp(250px, 56dvh, 540px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+  padding: 0.15em 0.05em 0.45em;
+  cursor: grab;
+}
+.fs-track::-webkit-scrollbar {
+  display: none;
+}
+.fs-track.dragging {
+  cursor: grabbing;
+  scroll-snap-type: none;
+  scroll-behavior: auto;
+}
+.fs-track.dragging .fs-card {
+  pointer-events: none;
+}
+.fs-scroll {
+  position: relative;
+  height: 0.42em;
+  margin: 0 auto 0.1em;
+  width: 70%;
+}
+.fs-scroll i {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 1em;
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: 0 0.08em 0 rgba(0, 0, 0, 0.3);
+  transition: width 0.2s;
+}
+
+/* --- Card --- */
+.fs-card {
+  --bg: linear-gradient(#ffffff, #d6dbe2);
+  --glow: #ffffff;
+  position: relative;
+  flex: 0 0 calc((100% - 2 * var(--gap)) / 3.12);
+  scroll-snap-align: start;
+  container-type: size;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+  border: 0.22em solid var(--ink);
+  border-radius: 0.35em;
+  background: var(--bg);
+  box-shadow: inset 0 0 0 0.2em rgba(255, 255, 255, 0.25), 0 0.3em 0 rgba(0, 0, 0, 0.3);
+  animation: fsIn 0.5s cubic-bezier(0.2, 1.5, 0.4, 1) both;
+  animation-delay: var(--d);
+  user-select: none;
+  -webkit-user-select: none;
+}
+.fs-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--stud) 0 0 / 7.5cqw 7.5cqw;
+  pointer-events: none;
+}
+@keyframes fsIn {
+  from { opacity: 0; transform: translateY(1.4em) scale(0.86); }
+  to { opacity: 1; transform: none; }
+}
+.fs-fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.fs-name,
+.fs-sub {
+  position: relative;
+  color: #fff;
+  font-weight: 700;
+  white-space: nowrap;
+  line-height: 1.05;
+  paint-order: stroke fill;
+  -webkit-text-stroke: 0.14em var(--ink);
+  text-shadow: 0 0.07em 0 rgba(0, 0, 0, 0.35);
+}
+.fs-name {
+  margin-top: 4.5cqh;
+  font-size: min(11.5cqw, 7.4cqh, calc(170cqw / var(--len)));
+}
+.fs-sub {
+  margin-top: 0.6cqh;
+  font-size: min(5.8cqw, 3.7cqh);
+  -webkit-text-stroke: 0.17em var(--ink);
+}
+.fs-art {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fs-halo {
+  position: absolute;
+  width: 78cqw;
+  aspect-ratio: 1;
+  max-height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--glow) 70%, transparent), transparent);
+  opacity: 0.35;
+}
+.fs-art img {
+  position: relative;
+  width: 84cqw;
+  max-height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 0.5em 0.35em rgba(0, 0, 0, 0.35));
+  opacity: 0;
+  transform: scale(0.5);
+  transition: opacity 0.25s, transform 0.45s cubic-bezier(0.2, 1.6, 0.4, 1);
+  pointer-events: none;
+}
+.fs-art img.ready {
+  opacity: 1;
+  transform: none;
+  animation: fsBob 3.4s ease-in-out infinite;
+  animation-delay: var(--bob);
+}
+@keyframes fsBob {
+  0%, 100% { transform: translateY(1.5cqh) rotate(-3deg); }
+  50% { transform: translateY(-1.8cqh) rotate(3deg); }
+}
+.fs-stats {
+  position: absolute;
+  bottom: 1.2cqh;
+  display: flex;
+  gap: 2cqw;
+  font-size: min(4.3cqw, 2.9cqh);
+  font-weight: 700;
+  color: #fff;
+}
+.fs-stats span {
+  padding: 0.15em 0.55em;
+  border-radius: 1em;
+  background: rgba(10, 8, 6, 0.42);
+  white-space: nowrap;
+}
+
+/* --- Button --- */
+.fs-btn {
+  position: relative;
+  width: 88cqw;
+  height: 16cqh;
+  min-height: 40px;
+  margin: 1cqh 0 5cqh;
+  border: 0.2em solid var(--ink);
+  border-radius: 0.3em;
+  overflow: hidden;
+  color: #fff;
+  font-size: min(12cqw, 8.4cqh);
+  font-weight: 700;
+  background:
+    linear-gradient(115deg, transparent 0 66%, rgba(255, 255, 255, 0.6) 66% 71%, transparent 71% 75%, rgba(255, 255, 255, 0.6) 75% 80%, transparent 80%),
+    linear-gradient(#f6f7f9 0 48%, #d5d9df 52% 100%);
+  box-shadow: inset 0 -0.2em 0 rgba(0, 0, 0, 0.18), 0 0.16em 0 rgba(0, 0, 0, 0.35);
+  touch-action: manipulation;
+  transition: transform 0.08s, filter 0.15s;
+}
+.fs-btn span {
+  position: relative;
+  paint-order: stroke fill;
+  -webkit-text-stroke: 0.15em var(--ink);
+  text-shadow: 0 0.07em 0 rgba(0, 0, 0, 0.35);
+}
+.fs-btn.go {
+  background:
+    linear-gradient(115deg, transparent 0 66%, rgba(255, 255, 255, 0.45) 66% 71%, transparent 71% 75%, rgba(255, 255, 255, 0.45) 75% 80%, transparent 80%),
+    linear-gradient(#a6f55e 0 48%, #58c934 52% 100%);
+}
+.fs-btn.eq {
+  background:
+    linear-gradient(115deg, transparent 0 66%, rgba(255, 255, 255, 0.45) 66% 71%, transparent 71% 75%, rgba(255, 255, 255, 0.45) 75% 80%, transparent 80%),
+    linear-gradient(#ffe45c 0 48%, #ffa81e 52% 100%);
+}
+.fs-btn.go::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.55) 45%, transparent 60%);
+  transform: translateX(-120%);
+  animation: fsShine 2.6s ease-in-out infinite;
+}
+@keyframes fsShine {
+  0%, 55% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+@media (hover: hover) {
+  .fs-btn:hover {
+    filter: brightness(1.08);
+  }
+}
+.fs-btn:active {
+  transform: scale(0.94);
+}
+.fs-btn.shake {
+  animation: fsShake 0.35s;
+}
+@keyframes fsShake {
+  20% { transform: translateX(-5%); }
+  40% { transform: translateX(5%); }
+  60% { transform: translateX(-3%); }
+  80% { transform: translateX(2%); }
+}
+
+/* --- Feedback --- */
+.fs-card.pop {
+  animation: fsPop 0.4s cubic-bezier(0.2, 1.8, 0.4, 1);
+}
+.fs-card.nudge {
+  animation: fsPop 0.25s ease-out;
+}
+@keyframes fsPop {
+  40% { transform: scale(1.05); }
+}
+.fs-card.bought {
+  animation: fsBought 0.75s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+.fs-card.bought::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(closest-side, #fff, color-mix(in srgb, var(--glow) 60%, transparent) 60%, transparent);
+  animation: fsFlash 0.6s ease-out forwards;
+  pointer-events: none;
+}
+.fs-card.bought .fs-art img.ready {
+  animation: fsSpin 0.8s cubic-bezier(0.2, 1.5, 0.4, 1), fsBob 3.4s ease-in-out 0.8s infinite;
+}
+@keyframes fsBought {
+  0% { transform: scale(1); }
+  25% { transform: scale(1.09) rotate(-1.5deg); }
+  55% { transform: scale(0.97) rotate(1deg); }
+  100% { transform: none; }
+}
+@keyframes fsFlash {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes fsSpin {
+  0% { transform: scale(0.6) rotate(0); }
+  60% { transform: scale(1.25) translateY(-6cqh) rotate(360deg); }
+  100% { transform: none; }
+}
+.fs-burst {
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  pointer-events: none;
+}
+.fs-burst i {
+  position: absolute;
+  width: 3.4cqw;
+  height: 3.4cqw;
+  border-radius: 0.1em;
+  border: 0.08em solid rgba(0, 0, 0, 0.35);
+  animation: fsBurst 0.95s cubic-bezier(0.1, 0.8, 0.3, 1) both;
+}
+@keyframes fsBurst {
+  from { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+  to { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy) + 14cqh)) rotate(var(--r)) scale(0.3); opacity: 0; }
+}
+.fs-tw {
+  position: absolute;
+  width: 6cqw;
+  aspect-ratio: 1;
+  background: #fff;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  opacity: 0;
+  animation: fsTwinkle 2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes fsTwinkle {
+  0%, 100% { opacity: 0; transform: scale(0.3) rotate(0); }
+  50% { opacity: 0.95; transform: scale(1) rotate(45deg); }
+}
+
+/* --- Rarities --- */
+.fs-card.r-common { --bg: linear-gradient(#ffffff, #d4d9e0); }
+.fs-card.r-uncommon { --bg: linear-gradient(#a6f468, #44bd2a); }
+.fs-card.r-rare { --bg: linear-gradient(#66d6ff 0%, #2c9ff2 58%, #1e76d6 100%); }
+.fs-card.r-epic { --bg: linear-gradient(#f590ff, #b43ef0 55%, #8c24d0); }
+.fs-card.r-legendary { --bg: linear-gradient(#ffe868, #ffb62a 55%, #ff8c16); }
+.fs-card.r-mythic { --bg: linear-gradient(#ff9c3c, #f2522a 50%, #d81e2a); }
+.fs-card.r-celestial { --bg: linear-gradient(125deg, #2ec6aa 0%, #34b8a6 26%, #8f8ad8 48%, #3ab590 70%, #7f9b2c 100%); }
+.fs-card.r-cosmic { --bg: radial-gradient(circle at 50% 32%, #6c56ff, #3a22c8 55%, #22107c); }
+.fs-card.r-divine { --bg: linear-gradient(165deg, #ffc6ea 0%, #ffd9ef 30%, #bcd8ff 62%, #ffe9a6 100%); }
+.fs-card.r-secret { --bg: linear-gradient(#2c2c33, #19191d); }
+.fs-card.r-exotic { --bg: linear-gradient(#251a3e, #120c22); }
+.fs-card.r-special { --bg: linear-gradient(#2c1652, #140a2c); }
+.fs-card.r-epic .fs-halo,
+.fs-card.r-legendary .fs-halo,
+.fs-card.r-mythic .fs-halo {
+  opacity: 0.5;
+}
+.fs-card.r-celestial .fs-halo,
+.fs-card.r-cosmic .fs-halo,
+.fs-card.r-divine .fs-halo,
+.fs-card.r-secret .fs-halo,
+.fs-card.r-exotic .fs-halo,
+.fs-card.r-special .fs-halo {
+  opacity: 0.55;
+  animation: fsPulse 2.4s ease-in-out infinite;
+}
+@keyframes fsPulse {
+  50% { opacity: 0.85; transform: scale(1.12); }
+}
+/* Celestial: a rainbow sheen sweeping across. */
+.fs-card.r-celestial .fs-fx {
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 120, 200, 0.25) 40%, rgba(255, 240, 120, 0.25) 46%, rgba(120, 255, 200, 0.25) 52%, rgba(120, 180, 255, 0.25) 58%, transparent 68%) 0 0 / 300% 100%;
+  animation: fsSheen 4s linear infinite;
+}
+@keyframes fsSheen {
+  from { background-position: 100% 0; }
+  to { background-position: -50% 0; }
+}
+/* Cosmic: a field of tiny stars. */
+.fs-card.r-cosmic .fs-fx {
+  background:
+    radial-gradient(circle, #fff 0 1px, transparent 1.5px) 0 0 / 23px 29px,
+    radial-gradient(circle, rgba(200, 220, 255, 0.8) 0 1px, transparent 1.5px) 11px 13px / 31px 37px;
+  opacity: 0.55;
+  animation: fsStars 3s ease-in-out infinite;
+}
+@keyframes fsStars {
+  50% { opacity: 0.25; }
+}
+/* Divine: a soft halo of light from above. */
+.fs-card.r-divine .fs-fx {
+  background: radial-gradient(ellipse 70% 45% at 50% 0, rgba(255, 255, 255, 0.85), transparent 70%);
+}
+/* Secret: a spotlight beam from the top. */
+.fs-card.r-secret .fs-fx {
+  background: linear-gradient(rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.04) 88%);
+  clip-path: polygon(38% 0, 62% 0, 100% 100%, 0 100%);
+  filter: blur(4px);
+}
+/* Exotic: crossing gold and teal beams. */
+.fs-card.r-exotic .fs-fx {
+  background:
+    linear-gradient(100deg, transparent 8%, rgba(255, 214, 90, 0.42) 18%, transparent 32%),
+    linear-gradient(100deg, transparent 40%, rgba(80, 240, 255, 0.36) 52%, transparent 66%);
+  filter: blur(3px);
+  animation: fsBeams 5s ease-in-out infinite alternate;
+}
+@keyframes fsBeams {
+  to { transform: translateX(8%); }
+}
+/* Special (Galaxy Donut): a gold beam over deep purple. */
+.fs-card.r-special .fs-fx {
+  background: linear-gradient(100deg, transparent 15%, rgba(255, 210, 90, 0.38) 28%, transparent 44%);
+  filter: blur(3px);
+}
+.fs-card.r-special .fs-sub {
+  color: #ffe9a0;
+}
+
+/* --- Small screens --- */
+@media (max-width: 680px) {
+  .fs-card {
+    flex-basis: calc((100% - var(--gap)) / 2.15);
+  }
+  .fs-track {
+    --gap: 0.6em;
+    height: clamp(250px, 60dvh, 470px);
+  }
+  .food-win .win-head h2 {
+    font-size: 2.7em;
+  }
+  .food-win .win-x {
+    width: 3em;
+    height: 3em;
+  }
+}
+@media (max-height: 460px) {
+  .food-win .win-head {
+    padding: 0.25em 0.5em 0.25em 0.9em;
+  }
+  .food-win .win-head h2 {
+    font-size: 2.2em;
+  }
+  .food-win .win-x {
+    width: 2.6em;
+    height: 2.6em;
+  }
+  .food-win .win-body {
+    padding: 0.5em 0.6em 0.3em;
+  }
+  .fs-track {
+    height: calc(100dvh - 9.5em - var(--safe-t) - var(--safe-b));
+    min-height: 0;
+  }
+  .fs-card {
+    flex-basis: calc((100% - 3 * var(--gap)) / 4.1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fs-art img.ready,
+  .fs-btn.go::after,
+  .fs-card .fs-fx,
+  .fs-tw {
+    animation: none;
+  }
+}

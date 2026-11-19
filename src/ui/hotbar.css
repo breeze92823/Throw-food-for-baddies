@@ -1,0 +1,131 @@
+/* Hotbar: caught baddies waiting to be placed. Bottom centre, chunky square slots. */
+.hotbar {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 1.6vmin);
+  transform: translateX(-50%);
+  z-index: 24;
+  display: flex;
+  gap: 1vmin;
+  pointer-events: none;
+  font-family: 'Fredoka', 'Arial Rounded MT Bold', system-ui, sans-serif;
+  font-weight: 700;
+  transition: opacity 0.3s, transform 0.3s;
+}
+.hotbar.empty {
+  display: none;
+}
+body.throw-mode .hotbar {
+  opacity: 0;
+  transform: translate(-50%, 140%);
+}
+body.throw-mode .hotbar.show {
+  opacity: 1;
+  transform: translateX(-50%);
+  z-index: 30;
+}
+.hb-slot {
+  position: relative;
+  width: clamp(52px, 9vmin, 96px);
+  height: clamp(52px, 9vmin, 96px);
+  padding: 0;
+  border: 0.5vmin solid #10131f;
+  border-radius: 1vmin;
+  background: linear-gradient(color-mix(in srgb, var(--rc) 55%, #fff), color-mix(in srgb, var(--rc) 70%, #000));
+  box-shadow: inset 0 0 0 0.4vmin rgba(255, 255, 255, 0.6), 0 0.5vmin 0 rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s cubic-bezier(0.2, 1.6, 0.4, 1);
+  font-family: inherit;
+  font-weight: 700;
+}
+.hb-slot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 0.6vmin;
+  display: block;
+}
+.hb-slot .num {
+  position: absolute;
+  left: 0.5vmin;
+  top: 0.2vmin;
+  font-style: normal;
+  font-size: clamp(12px, 2vmin, 20px);
+  color: #fff;
+  -webkit-text-stroke: 0.16em #0d1220;
+  paint-order: stroke fill;
+}
+.hb-slot .nm {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translate(-50%, -0.6vmin);
+  white-space: nowrap;
+  font-size: clamp(11px, 1.8vmin, 18px);
+  color: #fff;
+  -webkit-text-stroke: 0.16em #0d1220;
+  paint-order: stroke fill;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.hb-slot.on {
+  transform: translateY(-1.4vmin) scale(1.1);
+  border-color: #fff;
+  box-shadow: 0 0 0 0.5vmin #10131f, 0 0 2.6vmin 0.6vmin var(--rc), 0 0.5vmin 0 rgba(0, 0, 0, 0.35);
+}
+.hb-slot.on .nm {
+  opacity: 1;
+}
+.hb-slot.incoming {
+  opacity: 0;
+}
+.hb-slot.pop {
+  animation: hb-pop 0.4s cubic-bezier(0.2, 1.8, 0.4, 1);
+}
+@keyframes hb-pop {
+  0% { transform: scale(1.5); }
+  100% { transform: scale(1); }
+}
+.hb-fly {
+  position: fixed;
+  z-index: 40;
+  pointer-events: none;
+  border: 0.6vmin solid #10131f;
+  border-radius: 1.4vmin;
+  background: var(--rc);
+  box-shadow: 0 0 3vmin 1vmin var(--rc);
+  transition: left 0.7s cubic-bezier(0.5, -0.3, 0.6, 1), top 0.7s cubic-bezier(0.3, 0, 0.8, 0.6), width 0.7s, height 0.7s, transform 0.7s;
+}
+/* Phones: keep clear of the joystick (left) and the button cluster (right). */
+body.touch-ui .hotbar {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 2vmin);
+  max-width: 50vw;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+/* Touch: PLACE appears in the button cluster only while carrying a baddie. */
+.touch-btn.place {
+  display: none;
+  font-family: 'Fredoka', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  color: #fff;
+  background: rgba(60, 170, 40, 0.75);
+}
+body.holding .touch-btn.place {
+  display: flex;
+}
+.hb-slot .sz {
+  position: absolute;
+  top: 0.2vmin;
+  right: 0.4vmin;
+  padding: 0 0.5vmin;
+  border-radius: 0.6vmin;
+  background: #ff4fa8;
+  color: #fff;
+  font-size: clamp(9px, 1.4vmin, 14px);
+  line-height: 1.4;
+}

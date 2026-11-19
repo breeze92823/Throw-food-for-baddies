@@ -1,0 +1,392 @@
+/* Training Place overlay (ui/trainUi.js). Bottom centre: STOP over the level bar (lifted
+   above the hotbar when it has slots). Centre-left: the round 2x tap badge. Upper centre:
+   the LEVEL UP pops. Relative units; tap targets >= 44px. */
+.trn {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  pointer-events: none;
+  font-family: 'Fredoka', 'Arial Rounded MT Bold', system-ui, sans-serif;
+  font-weight: 700;
+  color: #fff;
+  user-select: none;
+  -webkit-user-select: none;
+  display: none;
+  --trn-bottom: calc(var(--safe-b, 0px) + 2.2vmin);
+}
+.trn.show {
+  display: block;
+}
+body:has(.hotbar:not(.empty)) .trn {
+  --trn-bottom: calc(var(--safe-b, 0px) + 1.6vmin + clamp(52px, 9vmin, 96px) + 1.8vmin);
+}
+.trn button {
+  font-family: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* --- Level bar --- */
+.trn-bar {
+  position: absolute;
+  left: 50%;
+  bottom: var(--trn-bottom);
+  transform: translateX(-50%);
+  width: clamp(250px, 36vw, 580px);
+  height: clamp(38px, 6.2vmin, 68px);
+  border: max(3px, 0.5vmin) solid #0a0d18;
+  border-radius: 0.8vmin;
+  overflow: hidden;
+  background: repeating-linear-gradient(115deg, rgba(255, 255, 255, 0) 0 46%, rgba(255, 255, 255, 0.07) 46% 52%, rgba(255, 255, 255, 0) 52% 56%, rgba(255, 255, 255, 0.07) 56% 60%, rgba(255, 255, 255, 0) 60%), linear-gradient(#1d2236, #10131f);
+  box-shadow: 0 0.5vmin 0 rgba(0, 0, 0, 0.35), inset 0 0 0 0.3vmin rgba(255, 255, 255, 0.08);
+  animation: trn-rise 0.35s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+.trn-bar i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+}
+.trn-bar .gain {
+  background: linear-gradient(#bfe6ff, #7cc4ff);
+  opacity: 0.55;
+  transition: width 0.12s ease-out;
+}
+.trn-bar .fill {
+  background: repeating-linear-gradient(115deg, rgba(255, 255, 255, 0) 0 70%, rgba(255, 255, 255, 0.18) 70% 76%, rgba(255, 255, 255, 0) 76% 80%, rgba(255, 255, 255, 0.18) 80% 84%, rgba(255, 255, 255, 0) 84%), linear-gradient(#5d8dff, #2c50d8 60%, #2440b0);
+  box-shadow: inset 0 0.45vmin 0 rgba(255, 255, 255, 0.28);
+  transition: width 0.42s cubic-bezier(0.3, 1.3, 0.5, 1) 0.08s;
+}
+.trn-bar span {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: clamp(17px, 3.3vmin, 36px);
+  line-height: 1;
+  white-space: nowrap;
+}
+.trn-bar .lv {
+  left: 4%;
+}
+.trn-bar .xp {
+  right: 4%;
+}
+.trn-bar.kick span.xp {
+  animation: trn-num 0.3s ease-out;
+}
+.trn-bar.lvup {
+  animation: trn-flash 0.6s ease-out;
+}
+.trn-bar.lvup .lv {
+  animation: trn-num 0.5s cubic-bezier(0.2, 1.6, 0.4, 1);
+  color: #9dff5a;
+}
+
+/* --- STOP --- */
+.trn-stop {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--trn-bottom) + clamp(38px, 6.2vmin, 68px) + 1.6vmin);
+  transform: translateX(-50%);
+  min-width: clamp(140px, 15vw, 290px);
+  min-height: 44px;
+  padding: 0.38em 1.1em;
+  font-size: clamp(22px, 4.6vmin, 54px);
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  color: #fff;
+  -webkit-text-stroke: 0.13em #10131f;
+  paint-order: stroke fill;
+  border: max(3px, 0.5vmin) solid #10131f;
+  border-radius: 0.9vmin;
+  background: repeating-linear-gradient(120deg, rgba(255, 255, 255, 0) 0 62%, rgba(255, 255, 255, 0.24) 62% 70%, rgba(255, 255, 255, 0) 70% 74%, rgba(255, 255, 255, 0.24) 74% 80%, rgba(255, 255, 255, 0) 80%), linear-gradient(#ff5d66, #e0283a 55%, #c81c2e);
+  box-shadow: inset 0 -0.35em 0 rgba(0, 0, 0, 0.2), inset 0 0.18em 0 rgba(255, 255, 255, 0.3), 0 0.6vmin 0 rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+  animation: trn-rise 0.35s cubic-bezier(0.2, 1.4, 0.4, 1) 0.05s both;
+}
+.trn-stop:active {
+  transform: translateX(-50%) translateY(0.15em) scale(0.96);
+}
+
+/* --- 2x tap badge --- */
+.trn-tap {
+  position: absolute;
+  left: 37%;
+  top: 56%;
+  width: clamp(64px, 12vmin, 136px);
+  height: clamp(64px, 12vmin, 136px);
+  padding: 0;
+  transform: translate(-50%, -50%);
+  border: max(3px, 0.55vmin) solid #7a4a00;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #fff6c8, #ffd85a 45%, #f2b31f 75%, #d68f10);
+  box-shadow: inset 0 -0.6vmin 0 rgba(0, 0, 0, 0.15), 0 0.5vmin 0 rgba(0, 0, 0, 0.3);
+  pointer-events: auto;
+  animation: trn-breathe 1.1s ease-in-out infinite;
+}
+.trn-tap svg {
+  position: absolute;
+  left: 14%;
+  top: 8%;
+  width: 66%;
+  height: 66%;
+  transform-origin: 50% 90%;
+  animation: trn-poke 1.1s ease-in-out infinite;
+}
+.trn-tap b {
+  position: absolute;
+  right: -6%;
+  bottom: 2%;
+  font-size: clamp(20px, 4.2vmin, 46px);
+  color: #fff;
+  -webkit-text-stroke-color: #7a4a00;
+}
+.trn-tap .hint {
+  position: absolute;
+  left: 50%;
+  bottom: 104%;
+  transform: translateX(-50%);
+  font-size: clamp(16px, 2.8vmin, 30px);
+  color: #ffe14a;
+  white-space: nowrap;
+  animation: trn-bob 0.9s ease-in-out infinite;
+  transition: opacity 0.4s;
+}
+.trn-tap.learned .hint {
+  opacity: 0;
+}
+.trn-tap::after {
+  content: '';
+  position: absolute;
+  inset: -16%;
+  border-radius: 50%;
+  border: 0.6vmin dashed rgba(255, 230, 90, 0.9);
+  opacity: 0;
+  transition: opacity 0.2s;
+  animation: trn-spin 2.2s linear infinite;
+}
+.trn-tap.on::after {
+  opacity: 1;
+}
+.trn-tap.on {
+  box-shadow: 0 0 2.4vmin 0.6vmin rgba(255, 220, 60, 0.8), inset 0 -0.6vmin 0 rgba(0, 0, 0, 0.15), 0 0.5vmin 0 rgba(0, 0, 0, 0.3);
+}
+.trn-tap.hit {
+  animation: trn-hit 0.22s ease-out;
+}
+.trn-tap.hit svg {
+  animation: trn-press 0.22s ease-out;
+}
+
+/* --- LEVEL UP pops --- */
+.trn-pops {
+  position: absolute;
+  left: 50%;
+  top: max(calc(var(--reserved-top, 64px) + 4vh), 14vh);
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+}
+.trn-pop {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  white-space: nowrap;
+  line-height: 0.95;
+  transition: transform 1s cubic-bezier(0.3, 0, 0.6, 1), opacity 1s ease-in, filter 1s;
+}
+.trn-pop .str {
+  font-size: clamp(22px, 5.2vmin, 62px);
+  font-style: italic;
+  color: #ff3d3d;
+  -webkit-text-stroke: 0.16em #2a0508;
+  transform: skewX(-6deg);
+  animation: trn-pop-in 0.45s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+.trn-pop .lvl {
+  margin-top: 0.06em;
+  font-size: clamp(44px, 12vmin, 150px);
+  letter-spacing: 0.02em;
+  color: #8dff3c;
+  -webkit-text-stroke: 0.12em #0b3306;
+  text-shadow: 0 0.07em 0 #0b3306, 0 0.14em 0.1em rgba(0, 0, 0, 0.35);
+  animation: trn-pop-in 0.55s cubic-bezier(0.2, 1.7, 0.4, 1) 0.06s both, trn-shine 1.2s ease-out 0.3s both;
+}
+.trn-pop.ghost {
+  transform: translate(-50%, -70%) scale(1.04);
+  opacity: 0;
+  filter: blur(1px);
+}
+
+/* HUD strength counter bump + "+5" float (the row lives in #hud). */
+.hud-strength {
+  position: relative;
+}
+.hud-strength.trn-bump .val {
+  display: inline-block;
+  animation: trn-num 0.5s cubic-bezier(0.2, 1.8, 0.4, 1);
+}
+.trn-plus {
+  position: absolute;
+  left: 100%;
+  top: -0.2em;
+  margin-left: 0.2em;
+  font-size: 0.55em;
+  color: #8dff3c;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: trn-plus 1.1s ease-out forwards;
+}
+
+/* While training the throw hint steps aside, and on touch the jump / sprint / camera
+   cluster hides (STOP, the joystick and the look drag still work). */
+body.training #hud .hud-hint {
+  opacity: 0;
+}
+body.training .touch-cluster {
+  opacity: 0;
+  pointer-events: none;
+}
+/* Portrait phones: the money / strength block fills the bottom-left corner, so the bar
+   and STOP sit above it. */
+@media (max-aspect-ratio: 4/5) {
+  .trn,
+  body:has(.hotbar:not(.empty)) .trn {
+    --trn-bottom: calc(var(--safe-b, 0px) + 14vh);
+  }
+}
+
+@keyframes trn-rise {
+  from {
+    opacity: 0;
+    translate: 0 120%;
+  }
+}
+@keyframes trn-num {
+  0% {
+    scale: 1;
+  }
+  35% {
+    scale: 1.35;
+  }
+  100% {
+    scale: 1;
+  }
+}
+@keyframes trn-flash {
+  0% {
+    box-shadow: 0 0 0 0.6vmin #b6ff6a, 0 0 3vmin 1vmin rgba(141, 255, 60, 0.9);
+  }
+  100% {
+    box-shadow: 0 0.5vmin 0 rgba(0, 0, 0, 0.35), inset 0 0 0 0.3vmin rgba(255, 255, 255, 0.08);
+  }
+}
+@keyframes trn-breathe {
+  0%,
+  100% {
+    scale: 1;
+  }
+  50% {
+    scale: 1.07;
+  }
+}
+@keyframes trn-poke {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  45% {
+    transform: translateY(8%) rotate(-6deg) scale(0.94);
+  }
+}
+@keyframes trn-press {
+  0% {
+    transform: translateY(14%) scale(0.85);
+  }
+}
+@keyframes trn-hit {
+  0% {
+    scale: 0.82;
+  }
+  60% {
+    scale: 1.12;
+  }
+  100% {
+    scale: 1;
+  }
+}
+@keyframes trn-bob {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -18%;
+  }
+}
+@keyframes trn-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+@keyframes trn-pop-in {
+  0% {
+    opacity: 0;
+    scale: 0.2;
+    rotate: -8deg;
+  }
+  60% {
+    opacity: 1;
+    scale: 1.15;
+    rotate: 2deg;
+  }
+  100% {
+    scale: 1;
+    rotate: 0deg;
+  }
+}
+@keyframes trn-shine {
+  0% {
+    filter: brightness(1.8);
+  }
+  100% {
+    filter: brightness(1);
+  }
+}
+@keyframes trn-plus {
+  0% {
+    opacity: 0;
+    translate: 0 30%;
+    scale: 0.6;
+  }
+  20% {
+    opacity: 1;
+    scale: 1.2;
+  }
+  100% {
+    opacity: 0;
+    translate: 0 -120%;
+    scale: 1;
+  }
+}
+
+@media (max-width: 600px), (max-height: 460px) {
+  .trn-tap {
+    left: 24%;
+    top: 58%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .trn-tap,
+  .trn-tap svg,
+  .trn-tap .hint {
+    animation: none;
+  }
+}
