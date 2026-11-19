@@ -115,6 +115,16 @@ function onUser() {
   emit(authListeners, authState)
 }
 
+// The player's Bloxity token: the game server verifies it with Bloxity and only then believes who the
+// player is (it never trusts a user id the client sends). '' for guests / without the SDK.
+export function getToken() {
+  try {
+    return sdk()?.auth?.getToken?.() || ''
+  } catch {
+    return ''
+  }
+}
+
 // Name for the HUD badge.
 export function displayName() {
   const u = authState.user
@@ -228,9 +238,9 @@ export function init() {
         const off1 = a.onBreakStart?.(() => emit(adListeners, true))
         const off2 = a.onBreakEnd?.(() => emit(adListeners, false))
         for (const off of [off1, off2]) if (typeof off === 'function') unsubscribers.push(off)
-        // Banner screens: gameplay (the hub) and panel (a window is open). Gameplay banners are off
-        // unless declared with show: true.
-        a.declareScreens?.({ gameplay: { show: true }, panel: {} })
+        // Banner screens: no banners while the player plays (gameplay is declared off and never
+        // reported); only 'panel' (a window is open) may show one. Rewarded ads are opt-in.
+        a.declareScreens?.({ gameplay: { show: false }, panel: {} })
       }
     } catch (err) {
       console.warn('[bloxity] ads setup failed', err)
@@ -463,9 +473,26 @@ export function playerInRoom(username) {
 }
 
 // A shareable link that opens the game in this room (the page reads ?roomId=, see launchRoomId).
-export function inviteLink(roomId) {
+export function inviteLink(roomId, ref = '') {
   try {
-    return sdk()?.social?.getInviteFriendsLink?.({ roomId }) ?? ''
+    const s = sdk()
+    // `ref` is the inviter's account id: the page opens with ?ref= and the game server credits them.
+    if (s) return s.social?.getInviteFriendsLink?.({ roomId, ref }) ?? ''
+  } catch {
+    return ''
+  }
+  // No SDK (local dev): a plain link to this page.
+  const u = new URL(location.href)
+  u.search = ''
+  if (roomId) u.searchParams.set('roomId', roomId)
+  if (ref) u.searchParams.set('ref', ref)
+  return u.href
+}
+
+// The ?ref= the page was opened with: the account whose invite link this is ('' = none).
+export function launchRef() {
+  try {
+    return (new URLSearchParams(location.search).get('ref') || '').slice(0, 128)
   } catch {
     return ''
   }
@@ -529,7 +556,7 @@ export async function loadEmotes() {
 // plaza boards. Both degrade to nothing without the SDK / outside Bloxity.
 function defineLeaderboards() {
   try {
-    sdk()?.leaderboard?.define?.(LEADERBOARDS.map((b) => ({ id: b.id, label: b.label, order: 'desc', mode: 'best' })))
+    sdk()?.leaderboard?.define?.(LEADERBOARDS.map(({ id, label, order, mode, format, reset }) => ({ id, label, order, mode, format, reset })))
   } catch (err) {
     console.warn('[bloxity] leaderboard.define failed', err)
   }
@@ -600,12 +627,11 @@ export function apiUrl() {
 }
 
 // Banner screens. The portal draws banners along the edges of the screen of the type last reported
-// (only one at a time; a new call replaces the previous one): 'gameplay' while playing the hub,
-// 'panel' while a window is open, null = none (cutscenes, ad breaks). The HUD keeps its middle free;
-// only the two right-hand corners take small banners.
+// (only one at a time; a new call replaces the previous one): 'panel' while a window is open, null =
+// none (all the time the player is playing, cutscenes, ad breaks). There is no 'gameplay' screen on
+// purpose: no ads while playing. (Platform midrolls are Bloxity's; the game only pauses for them.)
 const KEEP_FREE = ['top-left', 'top-center', 'middle-left', 'middle-right', 'bottom-left', 'bottom-center']
 const SCREEN_OPTIONS = {
-  gameplay: { skip: KEEP_FREE, sizes: { 'top-right': '320x50', 'bottom-right': '320x50' } },
   panel: { skip: KEEP_FREE, sizes: { 'top-right': '320x50', 'bottom-right': '320x50' } },
 }
 let screenType = null

@@ -108,7 +108,7 @@ const ribbonTex = () =>
   })
 const RIB = 20 // ribbon trail points (one per frame: about a third of a second of flight)
 
-export function createThrower(scene, { fx, sfx, player, camera, director, ui, onCaught, onThrow, toast, place, freeze, syncYaw, canEnter, income }) {
+export function createThrower(scene, { fx, sfx, player, camera, director, ui, onCaught, onThrow, toast, place, freeze, syncYaw, canEnter, income, toBase }) {
   // --- Scene pieces ---
   const sun = new Mesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ map: sunTex(), transparent: true, opacity: 0, depthWrite: false, blending: AdditiveBlending, fog: false }))
   sun.renderOrder = 1
@@ -420,6 +420,9 @@ export function createThrower(scene, { fx, sfx, player, camera, director, ui, on
   }
   function exit() {
     if (phase !== 'aim') return
+    finishExit()
+  }
+  function finishExit() {
     phase = 'off'
     ui.hide()
     ui.vignette('#000', 0)
@@ -728,6 +731,21 @@ export function createThrower(scene, { fx, sfx, player, camera, director, ui, on
       autoStop = rnd(TM.auto.stopAt[0], TM.auto.stopAt[1])
       refreshLucky()
       setPhase('aim')
+    }, RARITIES[bad?.def.rarity ?? 0].color)
+    setPhase('return')
+  }
+  // A girl just landed in the hotbar: end the throw and put the player back on their own base
+  // (to place her), instead of returning to the power meter. Auto mode keeps looping.
+  function leaveToBase() {
+    sfx.wipe()
+    ui.wipe(() => {
+      ui.letterbox(false)
+      ui.hideReveal()
+      ui.showContinue(false)
+      sun.visible = false
+      finishExit()
+      director.cut()
+      toBase?.()
     }, RARITIES[bad?.def.rarity ?? 0].color)
     setPhase('return')
   }
@@ -1170,7 +1188,8 @@ export function createThrower(scene, { fx, sfx, player, camera, director, ui, on
         if (bad.t > 1.45) {
           b.dispose()
           bad = { ...bad, b: null }
-          backToAim()
+          if (auto) backToAim()
+          else leaveToBase()
         }
       } else if (bad.sub === 'shrug') {
         b.update(rdt)

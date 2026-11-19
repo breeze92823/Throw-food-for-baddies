@@ -1,5 +1,5 @@
 import { ACESFilmicToneMapping, CircleGeometry, Clock, DoubleSide, Group, Mesh, MeshBasicMaterial, RingGeometry, PCFSoftShadowMap, PerspectiveCamera, Quaternion, Scene, SRGBColorSpace, Vector3, WebGLRenderer } from 'three'
-import { BADDIES, BOARD_BOTS, CAMERA, LEADERBOARDS, REMOTE, ECONOMY, FUSE, graphicsPreset, HUB, PENS, PHYSICS, POI, RARITIES, RENDER, SIZES, SPAWN, AUDIO, THROW_MODE } from './config.js'
+import { BADDIES, BOARD_BOTS, CAMERA, LEADERBOARDS, REMOTE, ECONOMY, FUSE, graphicsPreset, HUB, PENS, PHYSICS, POI, RARITIES, RENDER, SIZES, SPAWN, AUDIO, THROW_MODE, placeUnit } from './config.js'
 import * as THREE from 'three'
 import * as bloxity from './bloxity.js'
 import { createRemotePlayers } from './remote.js'
@@ -120,7 +120,6 @@ resize()
 const hub = buildHub(scene)
 const world = new Group()
 scene.add(world)
-buildFoodShop(world)
 buildSell(world)
 const fuseMachine = buildFuse(world)
 const chest = buildChest(world)
@@ -128,7 +127,6 @@ const boards = buildBoards(world)
 buildFriendWall(world)
 const laneDeco = buildLaneDeco(world)
 const band = buildThrowBand(world)
-const trainStation = buildTrainingStation(world)
 // Join the shared room first: the server assigns this player one of the bases (room size = number
 // of bases, so every player gets their own). No server (dev without one, blocked SDK, nobody
 // answering in time): play offline on the middle pen with the stand-in neighbours.
@@ -138,6 +136,11 @@ net.setJoinExtras(() => ({ avatar: lookJson() }))
 const session = await net.connect()
 const online = !!session
 const myIndex = online ? session.base : PENS.playerIndex
+// One unit per player: your base + your Food Shop + your Training Place, side by side. Other
+// players' shops and training stations are not built, so you only ever see your own.
+placeUnit(myIndex)
+buildFoodShop(world)
+const trainStation = buildTrainingStation(world)
 const pens = buildPens(world, { mine: myIndex, online })
 const myPen = pens[myIndex]
 const localVec = new Vector3()
@@ -162,7 +165,8 @@ for (const key of ['throw-food-for-baddies.save.v1', 'throw-food-for-baddies.ind
 }
 const saved = online ? await net.loadGame() : { ok: false, game: null }
 const away = state.hydrate(saved.game)
-state.setSaver((S) => net.saveGame(S))
+state.setInvites(saved.invites ?? 0)
+state.setSaver((S) => net.saveGame({ ...S, income: Math.round(state.income()) })) // + the money/s the income board ranks
 for (const b of state.S.baddies) myPen.add(b)
 const baseWalk = PHYSICS.walkSpeed
 const baseSprint = PHYSICS.sprintSpeed
@@ -465,6 +469,10 @@ thrower = createThrower(world, {
     player.facing = Math.PI
     syncYawToPlayer()
   },
+  // A girl went into the hotbar: the throw ends and the player appears on their own base to place her.
+  toBase() {
+    respawn()
+  },
   onCaught: {
     toHotbar(def) {
       hotbar.flyIn(def.id)
@@ -764,23 +772,38 @@ function sendPresence(dt, t, arm) {
 function countFriends() {
   const n = lastPlayers.filter((p) => !p.me && p.p?.uid && friendIds.has(p.p.uid)).length
   state.setFriends(n)
-  hud.setFriendBoost(Math.round(ECONOMY.friendBoost * 100 * state.friends()))
+  hud.setFriendBoost(Math.round(100 * (ECONOMY.friendBoost * state.friends() + state.inviteBoostPct())))
+  const hint = document.querySelector('.hud-friend small')
+  if (hint) hint.textContent = `Invite friends: +${Math.round(ECONOMY.inviteBoost * 100)}% each (${Math.min(ECONOMY.inviteMax, state.invites())}/${ECONOMY.inviteMax})`
+  refreshIncome()
 }
 async function refreshFriends() {
   friendIds = await bloxity.getFriendIds()
   countFriends()
 }
-if (online && bloxity.sdk()) {
-  void refreshFriends()
-  setInterval(refreshFriends, 60000)
+if (online) {
+  if (bloxity.sdk()) {
+    void refreshFriends()
+    setInterval(refreshFriends, 60000)
+  }
+  // Friend invite boost: a friend who joins from your link (new to the game) adds income for good.
+  // The link carries your account id as ?ref=; the server credits you once per new friend.
+  net.onInvites((n) => {
+    state.setInvites(n)
+    countFriends()
+    sfx.arrive()
+    hud.toast(`A friend joined from your invite! +${Math.round(ECONOMY.inviteBoost * 100)}% income`, 'rare')
+  })
+  countFriends()
   const badge = document.querySelector('.hud-friend')
   if (badge) {
     badge.style.pointerEvents = 'auto'
     badge.style.cursor = 'pointer'
-    badge.querySelector('small').textContent = 'Tap to invite friends: +15% each!'
     badge.addEventListener('pointerdown', async (e) => {
       e.preventDefault()
-      const link = bloxity.inviteLink(net.net.roomKey)
+      const ref = net.myUid()
+      if (!ref) return hud.toast('Sign in to Bloxity to invite friends and earn the boost.', 'warn')
+      const link = bloxity.inviteLink(net.net.roomKey, ref)
       if (!link) return
       try {
         await navigator.clipboard.writeText(link)
@@ -870,6 +893,7 @@ window.addEventListener('keydown', (e) => {
 
 // --- Leaderboards -------------------------------------------------------------------
 const botColors = ['#ff7fb8', '#7fa8ff', '#ffd84a', '#7dff4a', '#c27dff', '#ff9a2e', '#59e6ff', '#ff5f5f', '#b0ffb0', '#ffffff', '#ffc4dd']
+let serverBoards = null // { bestOdds, catches, income: [{ name, value }] } from the game server
 const liveRows = [null, null, null]
 async function refreshLiveBoards() {
   if (!bloxity.sdk()) return
@@ -884,6 +908,9 @@ function submitScores() {
 function drawBoards() {
   const me = { name: myPen.name, me: true, color: '#ffd84a' }
   const rows = (i, pick, fmtv, mine) => {
+    // The server's real top lists (every saved player), then Bloxity's, then the offline stand-ins.
+    const top = serverBoards?.[LEADERBOARDS[i].stat]
+    if (top?.length) return top.slice(0, 10).map((r, k) => ({ name: r.name, me: r.name === myPen.name, color: r.name === myPen.name ? '#ffd84a' : botColors[k % botColors.length], v: r.value, value: fmtv(r.value) }))
     // Bloxity's real top list when the SDK answered, else the offline stand-ins.
     const live = liveRows[i]
     if (live) return live.slice(0, 10).map((r, k) => ({ name: r.name, me: r.me, color: r.me ? '#ffd84a' : botColors[k % botColors.length], v: r.score, value: fmtv(r.score) }))
@@ -897,6 +924,13 @@ function drawBoards() {
   boards.draw(2, rows(2, (r) => r[3], (v) => `$${fmt(v)}/s`, state.income()))
 }
 drawBoards()
+// The server's top lists (they replay at once if they already arrived).
+if (online) {
+  net.onLeaderboard(({ boards }) => {
+    serverBoards = boards
+    drawBoards()
+  })
+}
 document.fonts?.ready?.then(drawBoards)
 setInterval(drawBoards, 60000)
 setInterval(refreshLiveBoards, 60000)

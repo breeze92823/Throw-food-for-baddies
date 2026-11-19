@@ -191,10 +191,13 @@ export const REMOTE = {
 
 // Bloxity leaderboards (bloxity.js, declared once, max 10): the plaza boards read them when the SDK
 // answers and fall back to the offline stand-ins (BOARD_BOTS) otherwise.
+// Same ids and settings as the backend's LEADERBOARDS (constants.ts): the first declaration is
+// permanent, and the server reports the scores of verified players. `stat` is the field of the save the
+// plaza board ranks (the server sends the top lists as boards[stat]).
 export const LEADERBOARDS = [
-  { id: 'best-pull', label: 'Best pull (1 in N)' },
-  { id: 'baddies-caught', label: 'Baddies caught' },
-  { id: 'money-per-second', label: 'Money per second' },
+  { id: 'best-pull', label: 'Best pull (1 in N)', stat: 'bestOdds', order: 'desc', mode: 'best', format: 'compact', reset: 'none' },
+  { id: 'baddies-caught', label: 'Baddies caught', stat: 'catches', order: 'desc', mode: 'best', format: 'number', reset: 'none' },
+  { id: 'money-per-second', label: 'Money per second', stat: 'income', order: 'desc', mode: 'best', format: 'compact', reset: 'none' },
 ]
 
 // The base rig, measured from player.glb: origin at the feet, 6.4 units tall at bind pose.
@@ -354,6 +357,18 @@ export const POI = {
   chest: { x: 38.6, z: -25.4, r: 2.6 },
   boards: { x: -34, z: -29.5, gap: 8.8 }, // west-most board, then east by gap
   friendWall: { x: -48, z: -29.6 },
+}
+
+// Every player owns one unit: their base (pen) + Food Shop + Training Place. POI.foodShop and
+// TRAINING.spot are written for the middle base (PENS.playerIndex); main.js calls placeUnit() once
+// the server has assigned this player a base, which moves both beside that base. Only the local
+// player's own shop and training station are ever built: other players' are not shown.
+export function placeUnit(baseIndex) {
+  const dx = PENS.xs[baseIndex] - PENS.xs[PENS.playerIndex]
+  POI.foodShop.x += dx
+  // The ring must stay on the meadow (the east-most base would push it into the cliff).
+  const maxX = HUB.maxX - TRAINING.ringR - 1.2
+  TRAINING.spot.x = Math.min(TRAINING.spot.x + dx, maxX)
 }
 
 export const RARITIES = [
@@ -820,7 +835,9 @@ export const ECONOMY = {
   padCashShare: 0.12, // fraction of income that also piles up on the collect pad
   padXpPerBaddie: 0.12, // XP per second per baddie on the pad; XP = strength
   sellSeconds: 45, // a baddie sells for this many seconds of its income
-  friendBoost: 0.15,
+  friendBoost: 0.15, // per Bloxity friend in your room
+  inviteBoost: 0.1, // per friend who joined the game from your invite link (permanent)
+  inviteMax: 10, // invited friends that count
   chestEvery: 600, // s between free chest rewards
   chestSeconds: 120, // the chest pays this many seconds of income (at least chestMin)
   chestMin: 100,

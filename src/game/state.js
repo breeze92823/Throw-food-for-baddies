@@ -56,6 +56,13 @@ export const capacityMaxed = () => capacity() >= ECONOMY.maxCapacity
 const PENS_MAX_FRIENDS = 4 // a room has at most 5 players
 let friendCount = 0
 export const friends = () => friendCount
+// Friends who joined the game from this player's invite link (the server counts them, once each).
+let inviteCount = 0
+export const invites = () => inviteCount
+export function setInvites(n) {
+  inviteCount = Math.max(0, Math.min(1e6, n | 0))
+}
+export const inviteBoostPct = () => Math.min(ECONOMY.inviteMax, inviteCount) * ECONOMY.inviteBoost
 export function setFriends(n) {
   friendCount = Math.max(0, Math.min(PENS_MAX_FRIENDS, n | 0))
 }
@@ -65,7 +72,7 @@ export const areaFound = (a) => areaGirls(a).filter((b) => S.discovered[b.id]).l
 export const areasComplete = () => AREAS.reduce((n, _, a) => n + (areaFound(a) === AREAS[a].girls.length ? 1 : 0), 0)
 export const indexMult = () => 1 + INDEX_BONUS * areasComplete()
 export const adBoostLeft = () => Math.max(0, (S.adBoostUntil - Date.now()) / 1000) // s of the rewarded-ad income boost left
-export const incomeMult = () => (1 + 0.25 * S.upgrades.cash) * (1 + ECONOMY.friendBoost * friends()) * indexMult() * (adBoostLeft() > 0 ? ECONOMY.adBoostMult : 1)
+export const incomeMult = () => (1 + 0.25 * S.upgrades.cash) * (1 + ECONOMY.friendBoost * friends() + inviteBoostPct()) * indexMult() * (adBoostLeft() > 0 ? ECONOMY.adBoostMult : 1)
 export const baddieIncome = (b) => BY_ID[b.id].income * SIZES[b.size].mult
 export const rawIncome = () => S.baddies.reduce((s, b) => s + baddieIncome(b), 0)
 export const income = () => rawIncome() * incomeMult()
