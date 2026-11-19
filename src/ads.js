@@ -41,7 +41,7 @@ export function createAds({ hud, sfx, fx, playerChest, onChange, isBusy, isPause
   let wasBoosted = false
 
   // --- Button + window ---
-  const btn = el('button', 'hud-btn gift', '<span class="gift-ico">🎁</span><span class="outline">Free Gift</span>')
+  const btn = el('button', 'hud-btn gift', '<span class="gift-ico">🎁</span><span class="outline"><span class="opt">Free </span>Gift</span>')
   btn.hidden = true
   document.querySelector('.hud-left')?.appendChild(btn)
   const overlay = el('div', 'ads-overlay')

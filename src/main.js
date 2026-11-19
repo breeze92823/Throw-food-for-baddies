@@ -490,10 +490,12 @@ thrower = createThrower(world, {
 })
 
 // --- Training Place --------------------------------------------------------------------
-// Walk into the dashed ring by the pillars: pull-ups earn training XP, levels give strength
+// Walk in under the bar: pull-ups earn training XP (the bench's XP/s), levels give strength; the
+// pad behind the bar upgrades the bench, random x2..x10 XP boost buttons pop up while you train
 // (game/training.js). Tap anywhere / Space / F / E for 2x; STOP, Q or walking gets off.
 let trainer = null
-const trainUi = createTrainUi({ onStop: () => trainer?.stop(), onTap: () => trainer?.tap() })
+const trainUi = createTrainUi({ onStop: () => trainer?.stop(), onTap: () => trainer?.tap(), onGrab: () => trainer?.grab() })
+trainStation.setTier(state.benchTier(), false) // the saved bench
 trainer = createTrainer({
   fx,
   sfx: trainSfx,
@@ -510,7 +512,10 @@ trainer = createTrainer({
     hotbar.select(-1) // hands free for the bar
     return true
   },
-  busy: () => thrower.active,
+  busy: () => thrower.active || hud.isOpen(),
+  // The pen's pad is the bench's upgrade pad (it sits right behind the bar).
+  pad: { spot: myPen.padSpot, label: myPen.pad.text, top: myPen.pad.top },
+  toast: (text, kind) => hud.toast(text, kind),
 })
 window.addEventListener('keydown', (e) => {
   if (!trainer.training || e.repeat || e.target instanceof HTMLInputElement) return
@@ -960,38 +965,10 @@ function updateZones() {
   }
 }
 
-// Pad and chest.
-let onPad = false
-let magnetT = 0
-function collectPad(auto = false) {
-  const got = state.collectPad()
-  if (!got) return
-  const pp = myPen.padSpot
-  const from = new Vector3(pp.x, 0.8, pp.z)
-  if (!auto) {
-    sfx.collect(got.cash > income() * 5)
-    fx.coins(from, Math.min(24, 4 + Math.floor(Math.log2(1 + got.cash))), playerChest, () => sfx.coin(Math.floor(Math.random() * 8)))
-    fx.sparkle(from, '#ffd93b', 24, { speed: 5 })
-    fx.ring(new Vector3(pp.x, 0.3, pp.z), '#ffd93b', { r1: 3 })
-  }
-  if (got.cash) fx.text(`+$${fmt(got.cash)}`, new Vector3(pp.x, 2.6, pp.z), '#7dff4a')
-  if (got.xp) fx.text(`+${got.xp} Strength`, new Vector3(pp.x, 3.6, pp.z), '#59b8ff', { height: 0.75 })
-}
+// The free chest. (The pen's pad is the Training Bench's upgrade pad: game/training.js.)
 const income = () => state.income()
 function updatePadAndChest(dt, t) {
   const p = player.renderPosition
-  const pp = myPen.padSpot
-  const on = (p.x - pp.x) ** 2 + (p.z - pp.z) ** 2 < 1.9 * 1.9 && p.y < 1.5
-  if (on && !onPad) collectPad()
-  onPad = on
-  if (state.S.upgrades.magnet) {
-    magnetT += dt
-    if (magnetT > 8) {
-      magnetT = 0
-      collectPad(true)
-    }
-  }
-  myPen.pad.text.set([{ text: `+${Math.floor(state.S.pad.xp)} XP`, color: '#59b8ff' }, { text: `$${fmt(Math.floor(state.S.pad.cash))}`, color: '#7dff4a' }])
   const ready = state.chestReady()
   chest.update(dt, t, ready)
   chest.setTimer(ready ? '' : clock((state.S.chestAt - Date.now()) / 1000))
@@ -1015,9 +992,10 @@ const treeSpots = hub.treeSpots
 const lanePt = new Vector3()
 function ambient(dt, t) {
   const p = player.renderPosition
-  // Collect pad glitter (more when there is cash on it).
+  // Upgrade pad glitter (more when you can afford the next bench).
   const pp = myPen.padSpot
-  if (Math.random() < dt * (state.S.pad.cash >= 1 ? 10 : 2)) fx.motes(new Vector3(pp.x, 0.35, pp.z), '#ffe14a', 1, 1.4)
+  const nb = state.benchNext()
+  if (Math.random() < dt * (nb && state.S.money >= nb.price ? 10 : 2)) fx.motes(new Vector3(pp.x, 0.35, pp.z), '#ffe14a', 1, 1.4)
   if (state.chestReady() && Math.random() < dt * 8) fx.motes(new Vector3(POI.chest.x, 0.4, POI.chest.z - 0.6), '#ffd34f', 1, 1.6, { rise: 1.6 })
   // Pollen motes drifting round the player.
   if (Math.random() < dt * 5) {
@@ -1087,7 +1065,7 @@ function questTarget() {
   const q = state.currentQuest()
   if (!q) return null
   if (q.id.startsWith('food')) return POI.foodShop
-  if (q.id === 'pad1') return myPen.padSpot
+  if (q.id === 'bench1') return trainer.active ? null : myPen.padSpot
   if (q.id === 'train1') return trainer.active ? null : TRAINING.spot
   if (q.id === 'pen1') return myPen.signSpot
   if (q.id === 'fuse1') return state.fusable().length ? { x: POI.fuse.x, z: POI.fuse.z + 0.8 } : laneMouth
@@ -1150,7 +1128,6 @@ renderer.setAnimationLoop(() => {
       hud.setMoney(state.S.money, inc)
     }
   }
-  state.tickPad(dt)
 
   thrower.update(dt, t)
   const wdt = dt * thrower.timeScale // slow motion / hit-stop for the world effects
@@ -1209,5 +1186,5 @@ if (import.meta.env.DEV) {
     resetPlayer({ x, y, z }, facing)
     syncYawToPlayer()
   }
-  window.__game = { net, remote, ads, player, scene, renderer, camera, postfx, bodies: bodyCount, toggleMode, teleport, state, hud, fx, pens, thrower, director, trainer, hotbar, placeCarried, carry: () => carried, updateCarry, give: (n) => state.addMoney(n, 'dev') }
+  window.__game = { net, remote, ads, player, scene, renderer, camera, postfx, bodies: bodyCount, toggleMode, teleport, state, hud, fx, pens, thrower, director, trainer, trainStation, hotbar, placeCarried, carry: () => carried, updateCarry, give: (n) => state.addMoney(n, 'dev') }
 }

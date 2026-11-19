@@ -1,8 +1,8 @@
 // The player's progress and the economy rules: money, strength, owned foods and
-// upgrades, the baddies in the pen, the collect pad, the chest timer, quests and
+// upgrades, the baddies in the pen, the Training Bench, the chest timer, quests and
 // stats. Saved to localStorage (debounced) and loaded at boot, with offline
 // income credited on return. Other modules listen with on(event, fn).
-import { AREAS, BADDIES, ECONOMY, FOODS, FUSE, INDEX_BONUS, LEGACY_IDS, QUESTS, SIZES, STARTER_FOOD, THROW, TRAINING, UPGRADES } from '../config.js'
+import { AREAS, BADDIES, ECONOMY, FOODS, FUSE, INDEX_BONUS, LEGACY_IDS, QUESTS, SIZES, STARTER_FOOD, THROW, TRAINING, UPGRADES, repXp } from '../config.js'
 import { BY_ID } from './baddieModel.js'
 
 const listeners = new Map()
@@ -35,8 +35,7 @@ function fresh() {
     hotbar: [], // caught, not placed yet: { id, size }
     discovered: {},
     quests: {},
-    pad: { cash: 0, xp: 0 },
-    train: { level: 1, xp: 0, reps: 0 }, // the Training Place (pull-up bar)
+    train: { level: 1, xp: 0, reps: 0, bench: 0 }, // the Training Place (pull-up bar); bench = tier in TRAINING.benches
     chestAt: Date.now() + 60 * 1000, // the first chest opens a minute in
     stats: { throws: 0, catches: 0, fused: 0, bestOdds: 0, earned: 0 },
     seen: [], // Index entries looked at (clears the NEW tags)
@@ -340,16 +339,20 @@ export function buyUpgrade(id) {
   return true
 }
 
-// --- Strength, pad, chest ---------------------------------------------------------------------
+// --- Strength, Training Bench, chest ---------------------------------------------------------
 export function addStrength(n) {
   S.strength += n
   emit('strength', totalStrength(), n)
   dirty()
 }
-// Training Place: one pull-up's XP. Returns { xp, levels } (levels gained by this rep).
+// Training Place: one pull-up's XP (the bench's XP/s x a rep's length, times `mult` for an XP
+// boost). Returns { xp, levels } (levels gained by this rep).
 export const trainNeed = () => TRAINING.need(S.train.level)
-export function trainRep() {
-  const xp = TRAINING.xpPerRep(S.train.level)
+export const benchTier = () => Math.min(TRAINING.benches.length - 1, Math.max(0, S.train.bench | 0))
+export const bench = () => TRAINING.benches[benchTier()]
+export const benchNext = () => TRAINING.benches[benchTier() + 1] ?? null
+export function trainRep(mult = 1) {
+  const xp = Math.round(repXp(benchTier()) * mult)
   S.train.xp += xp
   S.train.reps++
   let levels = 0
@@ -364,22 +367,17 @@ export function trainRep() {
   dirty()
   return { xp, levels }
 }
-export function tickPad(dt) {
-  const n = S.baddies.length
-  if (!n) return
-  S.pad.cash += income() * ECONOMY.padCashShare * dt
-  S.pad.xp += n * ECONOMY.padXpPerBaddie * dt
-}
-export function collectPad() {
-  const cash = Math.floor(S.pad.cash)
-  const xp = Math.floor(S.pad.xp)
-  if (cash < 1 && xp < 1) return null
-  S.pad.cash -= cash
-  S.pad.xp -= xp
-  if (cash) addMoney(cash, 'pad')
-  if (xp) addStrength(xp)
-  complete('pad1')
-  return { cash, xp }
+// Buys the next Training Bench with money. { ok, tier } or { ok: false, need } (money short) /
+// { ok: false, max: true }.
+export function upgradeBench() {
+  const next = benchNext()
+  if (!next) return { ok: false, max: true }
+  if (!spend(next.price)) return { ok: false, need: next.price - S.money }
+  S.train.bench = benchTier() + 1
+  emit('bench', S.train.bench)
+  complete('bench1')
+  dirty()
+  return { ok: true, tier: S.train.bench }
 }
 export function claimChest() {
   if (!chestReady()) return 0
@@ -452,8 +450,18 @@ export function hydrate(raw) {
   Object.assign(S, base, raw)
   S.upgrades = { ...base.upgrades, ...(raw.upgrades ?? {}) }
   S.stats = { ...base.stats, ...(raw.stats ?? {}) }
-  S.pad = { ...base.pad, ...(raw.pad ?? {}) }
   S.train = { ...base.train, ...(raw.train ?? {}) }
+  S.train.bench = Math.min(TRAINING.benches.length - 1, Math.max(0, S.train.bench | 0))
+  // The collect pad (cash + XP pile) is now the Training Bench's upgrade pad: what was left on it
+  // is paid out once, and the Pad Magnet upgrade it needed is refunded.
+  const oldPad = raw.pad && typeof raw.pad === 'object' ? raw.pad : null
+  if (oldPad) {
+    S.money += Math.max(0, Math.floor(oldPad.cash || 0))
+    S.strength += Math.max(0, Math.floor(oldPad.xp || 0))
+  }
+  delete S.pad
+  if (S.upgrades.magnet) S.money += 30000
+  delete S.upgrades.magnet
   S.seen = Array.isArray(raw.seen) ? raw.seen.filter((id) => BY_ID[id]) : []
   // Saves from the first version name girls by their old ids.
   const remap = (b) => ({ ...b, id: LEGACY_IDS[b.id] ?? b.id })

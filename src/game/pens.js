@@ -1,13 +1,13 @@
 // The five fenced pens along the south side. Each has an orange stud floor, a
 // wooden fence with a gate gap, a gate arch with a dashed drop spot, a capacity
-// sign, a collect pad, and the owner's round badge floating over the back with
+// sign, the Training Bench's upgrade pad, and the owner's round badge floating over the back with
 // their income. The middle pen is the player's; its baddies mirror state.S.baddies.
 // Baddies wander inside the fence, look at the player, dance now and then. When you come
 // close they try to charm you: they turn to you, drift over, and wave, blow kisses (a heart
 // flies to you), make heart hands, twirl, strike a peace pose, sway shyly or curtsy, each with
 // its particles and sound; every girl also sheds her area's particles (petals, snow, embers...).
 import { CanvasTexture, CylinderGeometry, Group, Mesh, MeshStandardMaterial, PlaneGeometry, Sprite, SpriteMaterial, SRGBColorSpace, Vector3 } from 'three'
-import { NEIGHBOURS, PENS, POI, RARITIES, SIZES } from '../config.js'
+import { NEIGHBOURS, PENS, POI, RARITIES, SIZES, TRAINING } from '../config.js'
 import { label, solidBox } from '../propkit.js'
 import { cbox, ccyl, flat, merge } from '../hub/geo.js'
 import { dynLabel } from '../hub/dynlabel.js'
@@ -161,8 +161,9 @@ function makePad(root, x, z) {
   rim.receiveShadow = top.receiveShadow = true
   rim.castShadow = true
   g.add(rim, top)
-  const text = dynLabel(0.75, { lines: 2, width: 560 })
-  text.sprite.position.set(0, 2.3, 0)
+  // The Training Bench's upgrade pad: "UPGRADE > +N XP/s", the XP/s now, the price.
+  const text = dynLabel(0.75, { lines: 3, width: 640 })
+  text.sprite.position.set(0, 2.75, 0)
   g.add(text.sprite)
   root.add(g)
   return { group: g, text, top }
@@ -233,7 +234,9 @@ export class Pen {
       // Neighbour plots: their sign shows a sample upgrade, their pad a small pile.
       const cap = this.owner.team.length + 2
       this.sign.draw(cap, cap + 2, 1000 * Math.pow(4, cap / 2), false, false)
-      this.pad.text.set([{ text: `+${1 + index} XP`, color: '#59b8ff' }, { text: `$${fmt(5 + index * 7)}`, color: '#7dff4a' }])
+      const b = TRAINING.benches[Math.min(TRAINING.benches.length - 2, index)]
+      const nb = TRAINING.benches[Math.min(TRAINING.benches.length - 1, index + 1)]
+      this.pad.text.set([{ text: `UPGRADE ▶ +${fmt(nb.xps, 0)} XP/s`, color: '#ffd23a', scale: 0.55 }, { text: `+${fmt(b.xps, 0)} XP/s`, color: '#59b8ff' }, { text: `$${fmt(nb.price)}`, color: '#7dff4a' }])
       for (const id of this.owner.team) this.add({ uid: `n${index}-${id}`, id, size: 0 })
       this.setIncome(this.owner.team.reduce((s, id) => s + BY_ID[id].income, 0))
     }

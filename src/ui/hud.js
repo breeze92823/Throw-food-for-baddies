@@ -73,10 +73,57 @@ export function createHud({ sfx, actions, onReservedAreas }) {
   const chargeBar = charge.querySelector('i')
   const chargeText = charge.querySelector('span')
 
+  // Boxity's reserved rectangles (toolbar along the top-left, chat feed under it) drive the
+  // phone layouts in hud.css:
+  //   --reserved-top   below everything reserved (left column on portrait phones)
+  //   --reserved-bar-r / --reserved-bar-b   the toolbar's right / bottom edge
+  //   --reserved-side-r  the right edge of the widest reserved box (chat feed)
+  //   --reserved-tr    how far the top-right corner is taken (full-width toolbar on narrow phones)
+  //   --quest-l / --quest-r / --quest-t   landscape phones: the quest banner sits in the widest
+  //                    gap, either beside the toolbar or beside the chat feed.
+  let reserved = []
+  const px = (v) => `${Math.round(v)}px`
+  function layoutReserved() {
+    const w = window.innerWidth
+    const box = (a) => {
+      const l = a.left ?? a.x ?? 0
+      const t = a.top ?? a.y ?? 0
+      return { l, t, r: l + (a.width ?? 0), b: t + (a.height ?? 0) }
+    }
+    const boxes = reserved.map(box)
+    const bottom = boxes.reduce((m, b) => Math.max(m, b.b), 0)
+    const bar = boxes.filter((b) => b.t <= 8)
+    const barR = bar.reduce((m, b) => Math.max(m, b.r), 0)
+    const barB = bar.reduce((m, b) => Math.max(m, b.b), 0)
+    const sideR = boxes.reduce((m, b) => Math.max(m, b.r), 0)
+    const rightBtns = 130 // the touch-top buttons (2 x 44 px + gaps + margin)
+    const tr = barR > w - rightBtns ? barB : 0
+    const s = document.documentElement.style
+    s.setProperty('--reserved-top', px(bottom + 12))
+    s.setProperty('--reserved-bar-r', px(barR))
+    s.setProperty('--reserved-bar-b', px(barB))
+    s.setProperty('--reserved-side-r', px(sideR))
+    s.setProperty('--reserved-tr', px(tr))
+    // Landscape quest: beside the toolbar (top row, left of the touch-top buttons) or, when
+    // that gap is narrow, beside the chat feed just under the toolbar (left of the right column).
+    const besideBar = w - barR - rightBtns - 16
+    const besideChat = w - sideR - 190 - 16
+    if (besideBar >= Math.min(260, besideChat)) {
+      s.setProperty('--quest-l', px(barR + 8))
+      s.setProperty('--quest-r', px(rightBtns))
+      s.setProperty('--quest-t', '0px')
+    } else {
+      s.setProperty('--quest-l', px(sideR + 8))
+      s.setProperty('--quest-r', px(190))
+      s.setProperty('--quest-t', px(barB))
+    }
+  }
   onReservedAreas?.((areas) => {
-    const bottom = areas.reduce((m, a) => Math.max(m, (a.top ?? 0) + (a.height ?? 0)), 0)
-    document.documentElement.style.setProperty('--reserved-top', `${Math.round(bottom + 12)}px`)
+    reserved = areas
+    layoutReserved()
   })
+  window.addEventListener('resize', layoutReserved)
+  layoutReserved()
 
   // --- Money / strength ---
   let shownMoney = state.S.money
@@ -160,9 +207,11 @@ export function createHud({ sfx, actions, onReservedAreas }) {
   // --- Active panel ---
   const foldKey = `${ECONOMY.saveKey}.activeFolded`
   let folded = matchMedia('(pointer: coarse)').matches || window.innerWidth < 700
+  // Phones always start folded (the open panel would cover the view); elsewhere the saved choice wins.
+  const phone = Math.min(window.innerWidth, window.innerHeight) < 500
   try {
     const v = localStorage.getItem(foldKey)
-    if (v != null) folded = v === '1'
+    if (v != null && !phone) folded = v === '1'
   } catch {
     // Ignore.
   }

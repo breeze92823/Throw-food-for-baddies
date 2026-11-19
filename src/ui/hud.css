@@ -1535,3 +1535,280 @@ button.card:active {
     max-height: 38vh;
   }
 }
+
+/* ============================== Phone layouts ============================== */
+/* Touch phones get their own HUD layout so nothing sits over the middle of the view:
+   compact square tiles instead of the wide Shop / Index buttons, everything pushed into the
+   corners and edges, clear of Boxity's toolbar + chat (top-left, see hud.js layoutReserved),
+   the touch-top buttons (top-right), the joystick (bottom-left) and the thumb cluster
+   (bottom-right). The --reserved-* / --quest-* variables come from hud.js. */
+.touch-ui #hud {
+  --tpad: clamp(12px, 3vmin, 24px); /* touch.css --pad */
+  --joy: clamp(104px, 28vmin, 150px); /* touch.css .joy-base --size */
+  --cluster: calc(clamp(72px, 20vmin, 100px) + clamp(52px, 14vmin, 70px) + 12px); /* .touch-cluster */
+  --tt-bottom: calc(max(var(--safe-t), var(--reserved-tr, 0px)) + var(--tpad) + 44px); /* under .touch-top */
+}
+
+/* Shared: Shop / Index / Free Gift become square tiles with the label under the icon. */
+@media (orientation: portrait) and (max-width: 640px), (orientation: landscape) and (max-height: 500px) {
+  .touch-ui #hud .hud-btn {
+    --tile: 52px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1px;
+    width: var(--tile);
+    height: var(--tile);
+    min-height: 44px;
+    padding: 3px 2px 4px;
+    border-width: 3px;
+    border-radius: 12px;
+    font-size: 11px;
+    line-height: 1;
+  }
+  .touch-ui #hud .hud-btn svg {
+    width: 26px;
+    height: 26px;
+  }
+  .touch-ui #hud .hud-btn.gift .gift-ico {
+    width: auto;
+    font-size: 22px;
+  }
+  .touch-ui #hud .hud-btn span.outline {
+    flex: none;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .touch-ui #hud .hud-btn .opt {
+    display: none; /* "Free Gift" -> "Gift" on the tile */
+  }
+  .touch-ui #hud .hud-btn .badge {
+    right: -6px;
+    top: -6px;
+    font-size: 12px;
+  }
+  .touch-ui #hud .hud-portrait {
+    width: 52px;
+    height: 52px;
+    min-width: 0;
+    min-height: 0;
+    border-width: 3px;
+    border-radius: 12px;
+  }
+  .touch-ui #hud .hud-portrait .count {
+    font-size: 11px;
+  }
+  .touch-ui #hud .hud-friend {
+    font-size: 1em;
+    text-align: right;
+  }
+  .touch-ui #hud .hud-friend b {
+    font-size: 13px;
+  }
+  .touch-ui #hud .hud-friend small {
+    display: none;
+  }
+  .touch-ui #hud .hud-hint {
+    max-width: 70vw;
+    white-space: normal;
+    text-align: center;
+  }
+  /* Active panel: smaller rows and buttons. */
+  .touch-ui #hud .hud-active {
+    font-size: calc(var(--u) * 0.85);
+  }
+  .touch-ui #hud .ha-tab {
+    width: 44px;
+    height: 44px;
+    font-size: 22px;
+  }
+  .touch-ui #hud .ha-head {
+    font-size: 1.6em;
+  }
+  .touch-ui #hud .ha-row {
+    min-height: 3.8em;
+  }
+  .touch-ui #hud .ha-row img {
+    width: 3.8em;
+    height: 3.8em;
+  }
+  .touch-ui #hud .ha-best {
+    min-height: 44px;
+    font-size: 1.5em;
+  }
+}
+
+/* Portrait phones: quest under the chat feed, tiles in a thin left column, Active button
+   (and friend boost) in a thin right column, stats bottom-left above the joystick. */
+@media (orientation: portrait) and (max-width: 640px) {
+  .touch-ui #hud {
+    --col-top: calc(var(--reserved-top) + 50px);
+  }
+  .touch-ui #hud .hud-quest {
+    top: calc(var(--reserved-top) - 4px);
+    min-width: 0;
+    max-width: calc(100vw - 16px - var(--safe-l) - var(--safe-r));
+    padding: 0.3em 1.3em 0.35em;
+    font-size: clamp(13px, 3.9vw, 17px);
+  }
+  .touch-ui #hud .hud-left {
+    top: var(--col-top);
+    left: calc(var(--safe-l) + 8px);
+    gap: 8px;
+  }
+  .touch-ui #hud .hud-portrait {
+    top: var(--col-top);
+    right: calc(var(--safe-r) + 8px);
+  }
+  .touch-ui #hud .hud-friend {
+    top: calc(var(--col-top) + 58px);
+    right: calc(var(--safe-r) + 6px);
+    bottom: auto;
+    max-width: 30vw;
+  }
+  .touch-ui #hud .hud-active {
+    top: var(--col-top);
+    right: calc(var(--safe-r) + 8px);
+  }
+  .touch-ui #hud .ha-main {
+    width: min(64vw, 250px);
+  }
+  .touch-ui #hud .ha-list {
+    max-height: 28dvh;
+  }
+  .touch-ui #hud .hud-stats {
+    bottom: calc(var(--safe-b) + var(--tpad) + var(--joy) + 14px);
+    left: calc(var(--safe-l) + 8px);
+    gap: 0;
+  }
+  .touch-ui #hud .hud-strength {
+    font-size: calc(var(--u) * 2.3);
+  }
+  .touch-ui #hud .hud-money {
+    font-size: calc(var(--u) * 2.9);
+  }
+  .touch-ui #hud .hud-toasts {
+    top: var(--col-top);
+    left: calc(var(--safe-l) + 68px);
+    right: calc(var(--safe-r) + 68px);
+    width: auto;
+    transform: none;
+  }
+  .touch-ui #hud .toast {
+    font-size: 13px;
+  }
+  .touch-ui #hud .hud-hint {
+    bottom: calc(var(--safe-b) + 26vh);
+  }
+}
+
+/* Landscape phones: quest in the top gap beside Boxity's toolbar, stats under the chat feed,
+   tiles in a row under the touch-top buttons, Active button below them, and the Active panel
+   sized to end above the thumb cluster. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .touch-ui #hud {
+    --tile-row: calc(var(--tt-bottom) + 8px);
+    --col-top: calc(var(--tile-row) + 46px + 8px);
+  }
+  .touch-ui #hud .hud-btn {
+    --tile: 46px;
+    font-size: 10px;
+  }
+  .touch-ui #hud .hud-btn svg {
+    width: 23px;
+    height: 23px;
+  }
+  .touch-ui #hud .hud-btn.gift .gift-ico {
+    font-size: 19px;
+  }
+  .touch-ui #hud .hud-quest {
+    top: calc(var(--safe-t) + var(--quest-t, 0px) + 6px);
+    left: var(--quest-l, 25vw);
+    right: calc(var(--quest-r, 25vw) + var(--safe-r));
+    width: fit-content;
+    min-width: 0;
+    max-width: none;
+    margin-inline: auto;
+    padding: 0.25em 1.1em 0.3em;
+    font-size: 14px;
+    transform: none;
+  }
+  .touch-ui #hud .hud-quest.done {
+    transform: scale(1.1);
+  }
+  .touch-ui #hud .hud-left {
+    top: var(--tile-row);
+    left: auto;
+    right: calc(var(--safe-r) + 8px);
+    flex-direction: row;
+    gap: 6px;
+  }
+  .touch-ui #hud .hud-portrait {
+    top: var(--col-top);
+    right: calc(var(--safe-r) + 8px);
+    width: 46px;
+    height: 46px;
+  }
+  .touch-ui #hud .hud-friend {
+    display: block;
+    top: calc(var(--col-top) + 4px);
+    right: calc(var(--safe-r) + 8px + 46px + 8px);
+    bottom: auto;
+  }
+  .touch-ui #hud.active-open .hud-friend {
+    display: none;
+  }
+  .touch-ui #hud .hud-active {
+    top: var(--col-top);
+    right: calc(var(--safe-r) + 8px);
+    font-size: calc(var(--u) * 0.8);
+  }
+  .touch-ui #hud .ha-main {
+    width: min(40vw, 270px);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.4em;
+  }
+  .touch-ui #hud .ha-head {
+    font-size: 1.4em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .touch-ui #hud .ha-best {
+    min-height: 40px;
+    padding: 0 0.6em;
+    font-size: 1.3em;
+  }
+  .touch-ui #hud .ha-list {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    /* End above the thumb cluster: 40 px head row + gap + the list's own padding/border. */
+    max-height: max(30px, calc(100dvh - var(--col-top) - var(--safe-b) - var(--tpad) - var(--cluster) - 64px));
+  }
+  .touch-ui #hud .hud-stats {
+    top: var(--reserved-top);
+    bottom: auto;
+    left: calc(var(--safe-l) + 8px);
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5em;
+  }
+  .touch-ui #hud .hud-strength {
+    font-size: calc(var(--u) * 2.2);
+  }
+  .touch-ui #hud .hud-money {
+    font-size: calc(var(--u) * 2.7);
+  }
+  .touch-ui #hud .hud-toasts {
+    top: calc(var(--safe-t) + max(var(--reserved-bar-b), var(--quest-t, 0px) + 40px) + 6px);
+    left: calc(var(--reserved-side-r) + 8px);
+    right: calc(var(--safe-r) + 190px);
+    width: auto;
+    transform: none;
+  }
+  .touch-ui #hud .toast {
+    font-size: 13px;
+  }
+}
