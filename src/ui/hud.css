@@ -190,23 +190,6 @@
   width: 1.15em;
   height: 1.15em;
 }
-.hud-gear {
-  pointer-events: auto;
-  margin-left: 0.3em;
-  width: calc(var(--u) * 4.4);
-  height: calc(var(--u) * 4.4);
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0.3em;
-  border-radius: 0.35em;
-  border: 0.18em solid #0d1220;
-  background: linear-gradient(#8e96a6, #5d6575);
-  box-shadow: inset 0 0.18em 0 rgba(255, 255, 255, 0.35), 0 0.15em 0 rgba(0, 0, 0, 0.4);
-}
-.hud-gear svg {
-  width: 100%;
-  height: 100%;
-}
 .hud-money {
   position: relative;
   font-size: calc(var(--u) * 4.6);

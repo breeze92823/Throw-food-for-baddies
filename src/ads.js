@@ -8,8 +8,8 @@
 // SDK the ad is simulated so the flow can be tried.
 //
 // Banners: the portal draws them along the screen edges for the screen type last reported
-// (bloxity.setAdScreen): 'gameplay' in the hub, 'panel' while a window is open, none during cutscenes
-// and ad breaks.
+// (bloxity.setAdScreen): only 'panel' while a window is open; none while playing, in cutscenes and during
+// ad breaks (no gameplay banners, by request).
 import './ads.css'
 import { ADS } from './config.js'
 import * as bloxity from './bloxity.js'
@@ -145,7 +145,7 @@ export function createAds({ hud, sfx, fx, playerChest, onChange, isBusy, isPause
       wasBoosted = left > 0
       onChange() // the boost ended: the income shown drops back
     }
-    bloxity.setAdScreen(isPaused() || isBusy() ? null : hud.isOpen() ? 'panel' : 'gameplay')
+    bloxity.setAdScreen(!isPaused() && !isBusy() && hud.isOpen() ? 'panel' : null) // never while playing
   }
 
   return { update, open, hide }

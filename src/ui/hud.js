@@ -46,9 +46,6 @@ export function createHud({ sfx, actions, onReservedAreas }) {
   portrait.title = 'My Baddies'
   const stats = el('div', 'hud-stats')
   const strRow = el('div', 'hud-row hud-strength', `${ICON.arm}<span class="val outline">10</span>`)
-  const gear = el('button', 'hud-gear', ICON.gear)
-  gear.title = 'Settings'
-  strRow.appendChild(gear)
   const moneyRow = el('div', 'hud-row hud-money', `${ICON.cash}<span class="val">$0</span><em class="hud-gain"></em>`)
   stats.append(strRow, moneyRow)
   const friend = el('div', 'hud-friend', '<b>FRIEND BOOST +0%</b><small>Play with friends: +15% each!</small>')
@@ -675,7 +672,6 @@ export function createHud({ sfx, actions, onReservedAreas }) {
     setFolded(false)
     sfx.windowOpen()
   })
-  gear.addEventListener('click', () => (isOpen('settings') ? closeWindow() : show('settings')))
   window.addEventListener('keydown', (e) => {
     if (e.code === 'Escape' && open) {
       e.stopImmediatePropagation()

@@ -75,6 +75,8 @@ export function currentIdentity() {
     userId: String(user?.id ?? user?.userId ?? user?.uid ?? guest?.id ?? newGuestId()),
     username: name === 'Offline' ? 'Player' : name,
     pfp: bloxity.getPfp(),
+    token: bloxity.getToken(), // the server verifies this with Bloxity to learn the real account
+    ref: bloxity.launchRef(), // the inviter, when the page was opened from a friend's invite link
   }
 }
 
@@ -130,6 +132,25 @@ async function joinOnce(preferredBase) {
   return hookGame(await client.joinOrCreate(NET.room, options))
 }
 
+// The plaza boards: the server sends { boards: { bestOdds|catches|income: [{ name, value }] }, ranks }
+// after the load and every minute. fn runs now with the latest one if it already arrived.
+const boardListeners = new Set()
+let lastBoards = null
+export function onLeaderboard(fn) {
+  boardListeners.add(fn)
+  if (lastBoards) fn(lastBoards)
+  return () => boardListeners.delete(fn)
+}
+
+// A friend joined from your invite link while you are online: fn(totalInvites).
+const inviteListeners = new Set()
+export function onInvites(fn) {
+  inviteListeners.add(fn)
+  return () => inviteListeners.delete(fn)
+}
+// This player's account id as the server verified it (the roster carries it): what invite links use as `ref`.
+export const myUid = () => net.room?.state?.players?.get?.(net.room.sessionId)?.uid || ''
+
 // --- The save (backend game.ts) ---------------------------------------------------------
 // The server answers a join with a `game` message (the stored progress, or null for a new player /
 // guest) once it has read the database, or `serverError` when it could not: then saving stays off
@@ -143,7 +164,7 @@ const lateGameListeners = new Set()
 function hookGame(room) {
   gameAnswer = new Promise((resolve) => {
     room.onMessage('game', (m) => {
-      const answer = { ok: true, game: m?.game ?? null }
+      const answer = { ok: true, game: m?.game ?? null, invites: Number(m?.invites) || 0 }
       if (!booted) resolve(answer)
       else if (awaitingIdentify) {
         awaitingIdentify = false // the answer to our `identify`: a mid-session sign-in loaded another account
@@ -301,7 +322,12 @@ function attach(room) {
     room.onMessage(type, (m) => emit(eventListeners.get(type) ?? [], m))
   }
   // Server messages this client does not use yet: swallow them without the SDK's console warning.
-  for (const type of ['noProgress', 'progress', 'spins', 'daily', 'leaderboard']) room.onMessage(type, () => {})
+  room.onMessage('invites', (m) => emit(inviteListeners, Number(m?.invites) || 0))
+  room.onMessage('leaderboard', (m) => {
+    lastBoards = m
+    emit(boardListeners, m)
+  })
+  for (const type of ['noProgress', 'progress', 'spins', 'daily']) room.onMessage(type, () => {})
   room.onStateChange(() => publishRoster(room))
   publishRoster(room)
   room.onDrop?.(() => setStatus('reconnecting')) // the SDK reconnects with the same seat by itself
