@@ -1,0 +1,27 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "5173",
+        "--strictPort",
+        "--mode",
+        "development"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "net-test",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "set VITE_DEV_MODE=true&& set VITE_SERVER_URL=ws://localhost:2567&& npx vite --port 5252 --strictPort --mode development"
+      ],
+      "port": 5252
+    }
+  ]
+}
