@@ -76,8 +76,12 @@ export const baddieIncome = (b) => BY_ID[b.id].income * SIZES[b.size].mult
 export const rawIncome = () => S.baddies.reduce((s, b) => s + baddieIncome(b), 0)
 export const income = () => rawIncome() * incomeMult()
 export const food = () => FOODS.find((f) => f.id === S.food) ?? FOODS.find((f) => f.id === STARTER_FOOD)
-export const totalStrength = () => S.strength + S.upgrades.arms * 20
-export const range = () => Math.min(THROW.maxRange, (THROW.baseRange + totalStrength() * THROW.perStrength) * food().power)
+export const totalStrength = () => S.strength
+// Throwing Strength as a range bonus (0.5 = +50%), capped at THROW.strengthCap.
+export const strengthBonus = () => Math.min(THROW.strengthCap, totalStrength() * THROW.strengthPct)
+export const range = () => Math.min(THROW.maxRange, food().dist * (1 + strengthBonus()))
+// Iron Arms: +xpPerLevel training XP per level.
+export const trainXpMult = () => 1 + (UPGRADES.find((u) => u.id === 'arms')?.xpPerLevel ?? 0) * (S.upgrades.arms ?? 0)
 export const luck = () => food().luck * (1 + 0.2 * S.upgrades.luck)
 export const walkMult = () => 1 + 0.1 * S.upgrades.speed
 export const sellPrice = (b) => Math.max(1, Math.round(baddieIncome(b) * ECONOMY.sellSeconds))
@@ -352,7 +356,7 @@ export const benchTier = () => Math.min(TRAINING.benches.length - 1, Math.max(0,
 export const bench = () => TRAINING.benches[benchTier()]
 export const benchNext = () => TRAINING.benches[benchTier() + 1] ?? null
 export function trainRep(mult = 1) {
-  const xp = Math.round(repXp(benchTier()) * mult)
+  const xp = Math.round(repXp(benchTier()) * mult * trainXpMult())
   S.train.xp += xp
   S.train.reps++
   let levels = 0

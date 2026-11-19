@@ -103,7 +103,7 @@ export function createFoodShop({ sfx, toast, celebrate }) {
     replay(c.el, 'bought')
     burst(c.el, r.glow)
     celebrate?.()
-    toast?.(`New food: ${c.def.name}! Range x${num(c.def.power)} • Luck x${num(c.def.luck)}`, 'good')
+    toast?.(`New food: ${c.def.name}! Range ${num(c.def.dist)} m • Luck x${num(c.def.luck)}`, 'good')
     update()
   }
 
@@ -117,7 +117,7 @@ export function createFoodShop({ sfx, toast, celebrate }) {
     el.style.setProperty('--bob', `${(i % 5) * -0.55}s`)
     const sub = def.special ? r.name : `${r.name} • Tier ${def.tier}`
     const twinkles = r.fx >= 6 ? Array.from({ length: 5 }, (_, k) => `<b class="fs-tw" style="left:${12 + ((k * 37 + i * 13) % 76)}%;top:${8 + ((k * 23 + i * 7) % 70)}%;animation-delay:${(k * 0.43 + i * 0.17) % 2}s"></b>`).join('') : ''
-    el.innerHTML = `<div class="fs-fx"></div><div class="fs-name">${esc(def.name)}</div><div class="fs-sub">${esc(sub)}</div><div class="fs-art"><div class="fs-halo"></div>${twinkles}<img alt="" draggable="false"><div class="fs-stats"><span>Range x${num(def.power)}</span><span>Luck x${num(def.luck)}</span></div></div><button class="fs-btn" data-silent><span></span></button>`
+    el.innerHTML = `<div class="fs-fx"></div><div class="fs-name">${esc(def.name)}</div><div class="fs-sub">${esc(sub)}</div><div class="fs-art"><div class="fs-halo"></div>${twinkles}<img alt="" draggable="false"><div class="fs-stats"><span>Range ${num(def.dist)} m</span><span>Luck x${num(def.luck)}</span></div></div><button class="fs-btn" data-silent><span></span></button>`
     const btn = el.querySelector('.fs-btn')
     const c = { el, btn, def, state: '' }
     btn.addEventListener('click', (e) => {
