@@ -376,6 +376,7 @@ export function createThrower(scene, { fx, sfx, player, camera, director, ui, on
     }
     held.visible = true
     held.scale.setScalar(1)
+    held.rotation.set(0, 0, 0) // a girl turned it to face her while eating
     spin.rotation.set(0, 0, 0)
   }
   const hand = (out) => {
@@ -629,8 +630,9 @@ export function createThrower(scene, { fx, sfx, player, camera, director, ui, on
     const eye = b.height * 0.86 * (0.62 + 0.38 * rise) + bob - (bad.dip ?? 0)
     // A peek: leaning out from behind the cover toward the lane while rising.
     const lean = (1 - rise) * 0.7 * bad.side
-    tmpA.set(bp.x + fx0 * 0.38 + fz0 * sway + lean, bp.y + eye, bp.z + fz0 * 0.38 - fx0 * sway)
-    tmpB.set(fp.x, fp.y + 0.15 - bob * 0.6, fp.z)
+    const fwd = 0.38 + (bad.fwd ?? 0) // bending forward to pick it up / head back over her hands
+    tmpA.set(bp.x + fx0 * fwd + fz0 * sway + lean, bp.y + eye, bp.z + fz0 * fwd - fx0 * sway)
+    tmpB.set(fp.x, fp.y + 0.15 + (bad.lookUp ?? 0) - bob * 0.6, fp.z)
     director.setShot(tmpA, tmpB, 72 - (bad.zoom ?? 0), { stiff: snap ? 60 : 30, roll: Math.sin(s) * 0.028 * walk + (1 - rise) * 0.12 * bad.side })
   }
   function startReveal() {
@@ -1059,12 +1061,19 @@ export function createThrower(scene, { fx, sfx, player, camera, director, ui, on
         const dx = fp.x - bp.x
         const dz = fp.z - bp.z
         const d = Math.hypot(dx, dz)
-        if (d < 1.3 || bad.skip) {
-          if (bad.skip && d >= 1.3) bp.set(fp.x - (dx / d) * 1.3, FY, fp.z - (dz / d) * 1.3)
+        if (d < 1.15 || bad.skip) {
+          if (bad.skip && d >= 1.15) bp.set(fp.x - (dx / d) * 1.15, FY, fp.z - (dz / d) * 1.15)
           bad.sub = 'eat'
           bad.t = 0
+          bad.et = 0
           bad.speed = 0
-          b.mode = 'eat'
+          bad.ground = fp.clone()
+          bad.groundRot = spin.rotation.x
+          bad.grabbed = false
+          bad.bites = -1
+          bad.fs = held.scale.x
+          b.mode = 'feed'
+          b.reach = b.hold = b.chomp = 0
           b.speed = 0
           b.group.rotation.y = Math.atan2(dx, dz)
           sfx.drumroll(1.6, bad.def.rarity)
@@ -1095,28 +1104,64 @@ export function createThrower(scene, { fx, sfx, player, camera, director, ui, on
         return
       }
       if (bad.sub === 'eat') {
-        // Look down at it, then bite after bite: the camera nods with each chomp, crumbs fly
-        // at the lens, the food shrinks away.
-        const look = smooth(Math.min(1, bad.t / 0.35))
-        const biteEvery = 0.42
-        const bite = Math.floor(Math.max(0, bad.t - 0.35) / biteEvery)
-        if (bad.t > 0.35 && bite !== bad.bites && bite < 3) {
+        // She bends down and scoops the food up in both hands, lifts it to her mouth and eats
+        // it from her hands bite by bite: the camera nods with each chomp, crumbs fly at the
+        // lens, the food shrinks away. A tap (skip) plays it at 3.5x.
+        const E = TM.eat
+        bad.et += dt * (bad.skip ? E.skipSpeed : 1)
+        const et = bad.et
+        const ramp = (from, len) => smooth(Math.max(0, Math.min(1, (et - from) / len)))
+        const reach = et < E.reach ? ramp(0, E.reach) : 1 - ramp(E.reach, E.lift)
+        const grab = ramp(E.grab, E.grabLen)
+        const hold = ramp(E.reach, E.lift)
+        const biteAt = E.reach + E.lift
+        const bk = (et - biteAt) / E.biteEvery // bites so far (fractional)
+        const chomp = bk > 0 && bk < E.bites ? Math.max(0, Math.sin(bk * Math.PI * 2)) : 0
+        b.reach = reach
+        b.hold = hold
+        b.chomp = chomp
+        b.update(dt)
+        // Where her two palms meet: the food sits just in front of them.
+        b.group.updateMatrixWorld(true)
+        const hl = b.armL.localToWorld(tmpA.set(0, -0.86, 0.14))
+        const hr = b.armR.localToWorld(tmpC.set(0, -0.86, 0.14))
+        hl.add(hr).multiplyScalar(0.5)
+        const yaw = b.group.rotation.y
+        hl.x += Math.sin(yaw) * E.inFront
+        hl.z += Math.cos(yaw) * E.inFront
+        hl.y += 0.04
+        fp.lerpVectors(bad.ground, hl, grab)
+        if (!bad.grabbed && grab > 0.02) {
+          bad.grabbed = true
+          sfx.pop(true)
+          director.shake(0.05)
+          fx.chunks(tmpB.set(bad.ground.x, FY + 0.3, bad.ground.z), foodColors(), 6, { power: 0.35, floor: FY + 0.02 })
+          fx.puff(tmpB.set(bad.ground.x, FY + 0.12, bad.ground.z), '#fff8e8', 5, { size: 0.5, spread: 1.2, up: 0.4, life: 0.6, alpha: 0.45 })
+        }
+        // Turn the food upright and its face toward her as it comes up.
+        const upright = Math.round(bad.groundRot / (Math.PI * 2)) * Math.PI * 2
+        spin.rotation.x = bad.groundRot + (upright - bad.groundRot) * grab
+        held.rotation.y = (yaw + Math.PI) * grab
+        // Bites: each one takes a chunk out of it.
+        const bite = bk >= 0.25 ? Math.floor(bk - 0.25) : -1 // on each chomp's peak
+        if (bite > bad.bites && bite < E.bites) {
           bad.bites = bite
           sfx.munch(1, 0, heldDef.kind)
-          fx.chunks(tmpB.set(fp.x, fp.y + 0.2, fp.z), foodColors(), 8, { power: 0.45, floor: FY + 0.02 })
+          fx.chunks(tmpB.set(fp.x, fp.y + 0.1, fp.z), foodColors(), 8, { power: 0.45, floor: FY + 0.02 })
           director.shake(0.09)
           director.kick(-2.5)
-          fx.crumbs(tmpA.set(fp.x, fp.y + 0.3, fp.z), foodColors(), 14)
-          fx.sparkle(tmpA, '#fff6c0', 6, { speed: 2, up: 1, size: 0.25, life: 0.5 })
-          held.scale.multiplyScalar(0.72)
+          fx.crumbs(tmpB.set(fp.x, fp.y + 0.15, fp.z), foodColors(), 14)
+          fx.sparkle(tmpB, '#fff6c0', 6, { speed: 2, up: 1, size: 0.25, life: 0.5 })
         }
-        const nod = bad.t > 0.35 ? Math.max(0, Math.sin(((bad.t - 0.35) / biteEvery) * Math.PI * 2)) * 0.12 : 0
-        bad.dip = look * 0.45 + nod
-        if (Math.random() < dt * 3) fx.hearts(tmpA.set(fp.x, fp.y + 0.8, fp.z), 1)
-        b.update(dt)
+        const size = bad.fs + (E.holdScale - bad.fs) * grab
+        held.scale.setScalar(Math.max(0.01, size * Math.pow(E.biteShrink, Math.max(0, bad.bites + 1))))
+        bad.dip = reach * 0.55 + chomp * 0.06
+        bad.fwd = reach * 0.3 - hold * 0.55
+        bad.lookUp = hold * 0.2
+        if (hold > 0.5 && Math.random() < dt * 3) fx.hearts(tmpB.set(fp.x, fp.y + 0.35, fp.z), 1)
         povShot(1)
-        if (bad.t > (bad.skip ? 0.6 : 1.75)) {
-          bad.dip = 0
+        if (et > biteAt + E.biteEvery * E.bites + E.after) {
+          bad.dip = bad.fwd = bad.lookUp = 0
           startReveal()
         }
         return

@@ -1,13 +1,14 @@
 // The Training Place. Walk into the dashed ring and you hop up onto the bar between the
 // pillars and do pull-ups: each rep (pull, hold, lower) earns training XP (a "+N XP"
 // pop at your head, a glock tick that climbs with the bar), every level gives Throwing
-// Strength (LEVEL UP pop, rings, a beam, confetti, the strength counter bumps). Tap /
-// click / Space / F / E trains 2x faster for a moment. STOP, Esc / Q, walking or jumping
+// Strength (LEVEL UP pop, rings, a beam, confetti, the strength counter bumps). STOP, Esc / Q,
+// walking or jumping
 // drops you off; you have to step away from the bar before it takes you again.
 //
-// Random XP boosts: while you train, a round "x2 XP" (x3, x5, x10: rolled by weight from
-// TRAINING.drops) button pops up on screen at random times; tap it before its ring runs out and
-// every rep pays that many times the XP for a while (coloured aura, orbiting sparks, bigger XP
+// Random XP boosts: while you train, a round "2x" tap button (x3, x5, x10: rolled by weight from
+// TRAINING.drops) pops up on screen at random times only; tap it (or Space / F / E) before its ring
+// runs out and every rep pays that many times the XP for `dur` s (10 s), then it is gone until the
+// next one shows up (coloured aura, orbiting sparks, bigger XP
 // pops, glowing screen edges, a countdown pill).
 //
 // The pad right behind the bar is the bench's upgrade pad: it shows the bench's XP/s and the money
@@ -41,16 +42,13 @@ function rollDrop() {
 // pad: { spot (Vector3, the pad centre), label (dynLabel), top (the yellow disc mesh) }.
 // toast(text, kind) shows a HUD toast.
 export function createTrainer({ fx, sfx, player, ui, station, director, freeze, syncYaw, canEnter, busy, pad, toast }) {
-  const { spot, ringR, rep: R, boost: B, drops: D } = TRAINING
+  const { spot, ringR, rep: R, drops: D } = TRAINING
   let phase = 'idle' // idle | mount | train | dismount
   let t0 = 0 // time in phase
   let armed = true // must leave the ring before it takes you again
   let cyc = 0 // 0..1 through the current rep
-  let boostT = 0
-  let taps = 0
   let near = false
   let sweatT = 0
-  let boostShown = false
   // Random XP boosts: the button on screen (drop) and the running boost (xb).
   let dropIn = 0 // s until the next button pops up
   let drop = null // { v, left }
@@ -87,7 +85,6 @@ export function createTrainer({ fx, sfx, player, ui, station, director, freeze, 
     t0 = 0
     cyc = 0
     armed = false
-    taps = 0
     freeze(true)
     player.facing = TRAINING.facing
     syncYaw()
@@ -103,9 +100,6 @@ export function createTrainer({ fx, sfx, player, ui, station, director, freeze, 
     if (phase !== 'mount' && phase !== 'train') return
     phase = 'dismount'
     t0 = 0
-    boostT = 0
-    boostShown = false
-    ui.boost(false)
     if (xb) sfx.boostEnd()
     drop = null
     xb = null
@@ -131,20 +125,11 @@ export function createTrainer({ fx, sfx, player, ui, station, director, freeze, 
     fx.stars(body, v.color, 10, 5)
     fx.text(`x${v.mult} XP!`, v3(spot.x, station.gripY + 1.3, spot.z), v.color, { height: 1.0, life: 1.3, rise: 1.4 })
   }
-  function tap() {
-    if (phase !== 'train' && phase !== 'mount') return
-    boostT = B.window
-    taps++
-    if (taps === 4) ui.learned()
-    ui.tapped()
-    ui.boost(true)
-    sfx.boost()
-  }
 
   // The top of a pull-up: pay out.
   function payRep() {
     const head = v.set(spot.x, station.gripY + 0.35, spot.z)
-    const boosted = boostT > 0
+    const boosted = !!xb
     const mult = xb ? xb.v.mult : 1
     const { xp, levels } = state.trainRep(mult)
     sfx.rep(boosted)
@@ -351,7 +336,6 @@ export function createTrainer({ fx, sfx, player, ui, station, director, freeze, 
       return phase === 'mount' || phase === 'train'
     },
     stop,
-    tap,
     grab,
     inRing,
     pose,
@@ -398,7 +382,6 @@ export function createTrainer({ fx, sfx, player, ui, station, director, freeze, 
       clock += dt
       near = (p.x - ringC.x) ** 2 + (p.z - ringC.z) ** 2 < (ringR + 4) ** 2
       if (!inRing(p, TRAINING.enterR + 0.5)) armed = true
-      boostT = Math.max(0, boostT - dt)
       updatePad(dt, t, p)
       if (phase === 'idle') {
         pose.active = false
@@ -428,9 +411,8 @@ export function createTrainer({ fx, sfx, player, ui, station, director, freeze, 
           fx.puff(v.set(spot.x, station.gripY, spot.z), '#ffffff', 4, { size: 0.35, spread: 0.6, up: 0.2, life: 0.6, alpha: 0.5 })
         }
       } else if (phase === 'train') {
-        const speed = boostT > 0 ? B.mult : 1
         const before = cyc * repLen()
-        cyc += (dt * speed) / repLen()
+        cyc += dt / repLen()
         const at = (cyc % 1) * repLen()
         if (before < R.up && at >= R.up) payRep()
         if (cyc >= 1) cyc -= 1
@@ -447,17 +429,13 @@ export function createTrainer({ fx, sfx, player, ui, station, director, freeze, 
         // Knees tuck on the pull, legs sway a little.
         pose.legs = 0.3 + s * 0.5
         pose.swing = Math.sin(t * 2.2) * 0.06
-        if (boostShown !== boostT > 0) {
-          boostShown = boostT > 0
-          ui.boost(boostShown)
-        }
         // Effort: sweat drops now and then, and a green aura rising off you.
         sweatT -= dt
         if (sweatT <= 0) {
           sweatT = 0.9 + Math.random() * 1.6
           fx.crumbs(v.set(spot.x + (Math.random() - 0.5) * 0.3, station.gripY - 0.2, spot.z + 0.15), ['#9fdcff', '#d8f3ff'], 2)
         }
-        if (Math.random() < dt * (boostT > 0 ? 14 : 6)) fx.motes(v.set(spot.x, 0.25, spot.z), xb ? xb.v.color : boostT > 0 ? '#ffe14a' : '#8dff3c', 1, 0.9, { rise: 2.2, size: 0.2, life: 1.2 })
+        if (Math.random() < dt * (xb ? 14 : 6)) fx.motes(v.set(spot.x, 0.25, spot.z), xb ? xb.v.color : '#8dff3c', 1, 0.9, { rise: 2.2, size: 0.2, life: 1.2 })
         updateDrops(dt)
       } else if (phase === 'dismount') {
         const k = Math.min(1, t0 / 0.3)
@@ -476,7 +454,7 @@ export function createTrainer({ fx, sfx, player, ui, station, director, freeze, 
         }
       }
 
-      station.update(t, dt, { active: phase === 'train' || phase === 'mount', boost: boostT > 0, boostColor: xb?.v.color ?? null, level: state.S.train.level, near })
+      station.update(t, dt, { active: phase === 'train' || phase === 'mount', boost: !!xb, boostColor: xb?.v.color ?? null, level: state.S.train.level, near })
     },
   }
 }

@@ -773,16 +773,17 @@ export const THROW = {
 // The Training Place (game/training.js, hub/trainingStation.js, ui/trainUi.js): the Training
 // Bench (two pillars + a pull-up bar) stands right in front of your pad, so you train with the
 // pad at your back. Walk in under the bar and you jump up and do pull-ups: every rep earns
-// training XP (the bench's XP/s), every training level gives Throwing Strength. Tap / click /
-// Space for 2x speed. STOP, Esc / Q, walking or jumping gets off.
+// training XP (the bench's XP/s), every training level gives Throwing Strength. STOP, Esc / Q,
+// walking or jumping gets off.
 // The pad shows the bench's XP/s and the money price of the next bench: step on it to upgrade.
 // Every tier is its own 3D model (`style`, built in hub/trainingStation.js). Money only.
-const PAD_Z = PENS.z - PENS.halfD + POI.padOffset.z // the collect pad's z (all bases)
+const PAD_Z = PENS.z - PENS.halfD + POI.padOffset.z // the upgrade pad's z (all bases)
+const PAD_GAP = 4.3 // m from the bar to the pad centre: about 2.3 m of open grass between them
 export const TRAINING = {
   // Centre of the bench; the bar runs east-west over it, the pad sits `padGap` m behind it.
-  padGap: 2.35,
-  spot: { x: PENS.xs[PENS.playerIndex] + POI.padOffset.x, z: PAD_Z - 2.35 },
-  ringR: 3.4, // the dashed ring round bench + pad (decoration and the "near" glow)
+  padGap: PAD_GAP,
+  spot: { x: PENS.xs[PENS.playerIndex] + POI.padOffset.x, z: PAD_Z - PAD_GAP },
+  ringR: 4.7, // the dashed ring round bench + pad (decoration and the "near" glow)
   enterR: 1.45, // step this close to the bar's centre to start training
   facing: Math.PI, // you face north (toward the lane) on the bar, the pad behind you
   pillar: { gap: 2.7, height: 3.4, size: 0.78 }, // centre-to-centre gap, height to the lintel top
@@ -790,7 +791,6 @@ export const TRAINING = {
   // hang with the arms nearly straight and pull until your shoulders are `top` m under the bar.
   grip: { drop: 0.05, top: 0.14, forward: 0.06 }, // hand centre under the bar, shoulders at the top, bar ahead of the shoulders
   rep: { up: 0.32, hold: 0.1, down: 0.42, rest: 0.1 }, // s per phase at 1x speed
-  boost: { mult: 2, window: 1.15 }, // a tap trains this much faster for this many seconds
   strengthPerLevel: 5,
   // XP to finish a level: about 3 reps at level 1 on the first bench, growing slowly.
   need: (level) => Math.round(Math.round(4 + level * 0.12) * (3 + level * 0.08)),
@@ -808,18 +808,18 @@ export const TRAINING = {
     { name: 'Celestial Gate', xps: 270, price: 220e6, style: 'celestial', colors: ['#fff6e0', '#ffe7a3', '#8a7aff', '#ffd34f'], glow: '#fff3c4' },
     { name: 'Cosmic Titan', xps: 430, price: 1.6e9, style: 'cosmic', colors: ['#1a1240', '#0a0820', '#ff7af2', '#7ffce0'], glow: '#ff7af2' },
   ],
-  // Random XP boosts: while you train a round "x2 XP" button pops up somewhere on screen at a
-  // random time; tap it before it runs out and every rep pays that many times the XP for
-  // `dur` s. The value is rolled by weight (rarer = bigger).
+  // Random XP boosts: while you train a round "2x" tap button pops up somewhere on screen at a
+  // random time (it is never there all the time); tap it before it runs out and every rep pays
+  // that many times the XP for `dur` s, then it ends. The value is rolled by weight (rarer = bigger).
   drops: {
     first: [3, 7], // s into a session before the first one
     every: [8, 16], // s between one leaving and the next appearing
     life: 4.2, // s it stays up
     values: [
       { mult: 2, weight: 60, dur: 10, color: '#7dff4a' },
-      { mult: 3, weight: 25, dur: 9, color: '#3fd0ff' },
-      { mult: 5, weight: 11, dur: 8, color: '#c27dff' },
-      { mult: 10, weight: 4, dur: 7, color: '#ffc21f' },
+      { mult: 3, weight: 25, dur: 10, color: '#3fd0ff' },
+      { mult: 5, weight: 11, dur: 10, color: '#c27dff' },
+      { mult: 10, weight: 4, dur: 10, color: '#ffc21f' },
     ],
   },
 }
@@ -853,6 +853,10 @@ export const THROW_MODE = {
   lucky: { mult: 100, minPrice: 2500, incomeSeconds: 420 },
   auto: { stopAt: [0.8, 0.99], continueAfter: 1.0, revealHold: 1.9 },
   typeEvery: 0.085, // s per letter of the name reveal
+  // The girl picks the food up in both hands and eats it from them (s unless noted):
+  // bend down (reach), the food leaves the ground at grab for grabLen, she straightens and
+  // lifts it to her mouth (lift), bites, then a short beat (after) before the reveal.
+  eat: { reach: 0.55, grab: 0.4, grabLen: 0.35, lift: 0.5, bites: 3, biteEvery: 0.42, after: 0.25, holdScale: 0.62, biteShrink: 0.72, inFront: 0.1, skipSpeed: 3.5 },
   // Camera shots (metres, degrees).
   cam: {
     aim: { back: 6.4, up: 4.4, side: 1.6, lookAhead: 34, lookUp: -5.5, fov: 60 },
