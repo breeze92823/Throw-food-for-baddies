@@ -349,7 +349,7 @@ export const NET = {
 // Points of interest (walk into a ring to open its window).
 export const POI = {
   foodShop: { x: -6.2, z: 9.2, r: 2.6 },
-  padOffset: { x: 5.4, z: -5.2 }, // collect pad, relative to the pen front centre
+  padOffset: { x: 5.4, z: -5.2 }, // the Training Bench's upgrade pad, relative to the pen front centre
   gateOffset: { x: 0, z: 0 },
   signOffset: { x: 3.4, z: 0.4 },
   sell: { x: 20, z: -24, r: 2.8 },
@@ -770,15 +770,21 @@ export const THROW = {
   strengthPerThrow: 1,
 }
 
-// The Training Place (game/training.js, hub/trainingStation.js, ui/trainUi.js): two white
-// pillars joined by a lintel bar on a dashed ring in the meadow, east of your collect pad.
-// Walk into the ring and you jump up and do pull-ups on the bar: every rep earns training
-// XP, every training level gives Throwing Strength. Tap / click / Space for 2x speed. STOP,
-// Esc / Q, walking or jumping gets off.
+// The Training Place (game/training.js, hub/trainingStation.js, ui/trainUi.js): the Training
+// Bench (two pillars + a pull-up bar) stands right in front of your pad, so you train with the
+// pad at your back. Walk in under the bar and you jump up and do pull-ups: every rep earns
+// training XP (the bench's XP/s), every training level gives Throwing Strength. Tap / click /
+// Space for 2x speed. STOP, Esc / Q, walking or jumping gets off.
+// The pad shows the bench's XP/s and the money price of the next bench: step on it to upgrade.
+// Every tier is its own 3D model (`style`, built in hub/trainingStation.js). Money only.
+const PAD_Z = PENS.z - PENS.halfD + POI.padOffset.z // the collect pad's z (all bases)
 export const TRAINING = {
-  spot: { x: 13.5, z: 6.5 }, // centre of the ring; the bar runs east-west over it
-  ringR: 3.4,
-  facing: Math.PI, // you face north (toward the lane) on the bar
+  // Centre of the bench; the bar runs east-west over it, the pad sits `padGap` m behind it.
+  padGap: 2.35,
+  spot: { x: PENS.xs[PENS.playerIndex] + POI.padOffset.x, z: PAD_Z - 2.35 },
+  ringR: 3.4, // the dashed ring round bench + pad (decoration and the "near" glow)
+  enterR: 1.45, // step this close to the bar's centre to start training
+  facing: Math.PI, // you face north (toward the lane) on the bar, the pad behind you
   pillar: { gap: 2.7, height: 3.4, size: 0.78 }, // centre-to-centre gap, height to the lintel top
   // The hands are pinned to the bar (2-bone arm IK sized from the avatar's own bones): you
   // hang with the arms nearly straight and pull until your shoulders are `top` m under the bar.
@@ -786,9 +792,41 @@ export const TRAINING = {
   rep: { up: 0.32, hold: 0.1, down: 0.42, rest: 0.1 }, // s per phase at 1x speed
   boost: { mult: 2, window: 1.15 }, // a tap trains this much faster for this many seconds
   strengthPerLevel: 5,
-  xpPerRep: (level) => Math.round(4 + level * 0.12),
-  // XP to finish a level: about 3 reps at level 1, growing slowly (11 reps by level 100).
+  // XP to finish a level: about 3 reps at level 1 on the first bench, growing slowly.
   need: (level) => Math.round(Math.round(4 + level * 0.12) * (3 + level * 0.08)),
+  // The benches, in order: XP per second of training at 1x, the money price to upgrade INTO it,
+  // and its look (`style` picks the model, `colors` its palette, `glow` its accent light).
+  benches: [
+    { name: 'Rookie Logs', xps: 4, price: 0, style: 'logs', colors: ['#9a6334', '#6e4220', '#c99a5e', '#e8d6a8'], glow: '#ffd27a' },
+    { name: 'Brick Gym', xps: 8, price: 150, style: 'brick', colors: ['#f6f8fc', '#dde3ee', '#c4ccdb', '#2a2f3d'], glow: '#ffffff' },
+    { name: 'Iron Rig', xps: 14, price: 1200, style: 'iron', colors: ['#5d6678', '#3a4150', '#e0313f', '#cfd6e2'], glow: '#ff5a5a' },
+    { name: 'Neon Arena', xps: 24, price: 9000, style: 'neon', colors: ['#1d2236', '#10131f', '#25e8ff', '#ff3df2'], glow: '#25e8ff' },
+    { name: 'Golden Temple', xps: 40, price: 70e3, style: 'gold', colors: ['#ffc93a', '#d99a12', '#c4202f', '#fff2b0'], glow: '#ffd34f' },
+    { name: 'Frost Crystal', xps: 65, price: 500e3, style: 'ice', colors: ['#bfeaff', '#7cc8f2', '#ffffff', '#3d8fd6'], glow: '#9fe8ff' },
+    { name: 'Lava Forge', xps: 105, price: 4e6, style: 'lava', colors: ['#3e3446', '#241c2a', '#ff6a1a', '#ffd23a'], glow: '#ff6a1a' },
+    { name: 'Royal Diamond', xps: 170, price: 30e6, style: 'royal', colors: ['#7a3cf0', '#4a1fa8', '#ffffff', '#ffd34f'], glow: '#c79bff' },
+    { name: 'Celestial Gate', xps: 270, price: 220e6, style: 'celestial', colors: ['#fff6e0', '#ffe7a3', '#8a7aff', '#ffd34f'], glow: '#fff3c4' },
+    { name: 'Cosmic Titan', xps: 430, price: 1.6e9, style: 'cosmic', colors: ['#1a1240', '#0a0820', '#ff7af2', '#7ffce0'], glow: '#ff7af2' },
+  ],
+  // Random XP boosts: while you train a round "x2 XP" button pops up somewhere on screen at a
+  // random time; tap it before it runs out and every rep pays that many times the XP for
+  // `dur` s. The value is rolled by weight (rarer = bigger).
+  drops: {
+    first: [3, 7], // s into a session before the first one
+    every: [8, 16], // s between one leaving and the next appearing
+    life: 4.2, // s it stays up
+    values: [
+      { mult: 2, weight: 60, dur: 10, color: '#7dff4a' },
+      { mult: 3, weight: 25, dur: 9, color: '#3fd0ff' },
+      { mult: 5, weight: 11, dur: 8, color: '#c27dff' },
+      { mult: 10, weight: 4, dur: 7, color: '#ffc21f' },
+    ],
+  },
+}
+// XP one rep pays on bench `tier` (before boosts): its XP/s times the length of a 1x rep.
+export const repXp = (tier) => {
+  const r = TRAINING.rep
+  return Math.max(1, Math.round(TRAINING.benches[tier].xps * (r.up + r.hold + r.down + r.rest)))
 }
 
 // The throw sequence (game/throw.js + ui/throwUi.js). Step onto the yellow band at the lane
@@ -832,8 +870,6 @@ export const ECONOMY = {
   capacityStep: 2,
   maxCapacity: 24,
   capacityCost: (level) => Math.round(250 * Math.pow(4.2, level)), // level 0 = first upgrade
-  padCashShare: 0.12, // fraction of income that also piles up on the collect pad
-  padXpPerBaddie: 0.12, // XP per second per baddie on the pad; XP = strength
   sellSeconds: 45, // a baddie sells for this many seconds of its income
   friendBoost: 0.15, // per Bloxity friend in your room
   inviteBoost: 0.1, // per friend who joined the game from your invite link (permanent)
@@ -855,14 +891,13 @@ export const UPGRADES = [
   { id: 'arms', name: 'Iron Arms', desc: '+20 strength', max: 25, cost: (l) => Math.round(200 * Math.pow(2.6, l)) },
   { id: 'luck', name: 'Lucky Charm', desc: '+20% luck', max: 10, cost: (l) => Math.round(1500 * Math.pow(4.5, l)) },
   { id: 'speed', name: 'Speedy Shoes', desc: '+10% walk speed', max: 5, cost: (l) => Math.round(400 * Math.pow(3, l)) },
-  { id: 'magnet', name: 'Pad Magnet', desc: 'Auto-collect your pad', max: 1, cost: () => 30000 },
 ]
 
 // The objective banner (top centre). The first unfinished one shows; each pays a reward.
 export const QUESTS = [
   { id: 'catch1', text: 'Throw food at a baddie in the lane', reward: 50 },
-  { id: 'pad1', text: 'Collect cash from your pad', reward: 75 },
-  { id: 'train1', text: 'Do pull-ups at the Training Place', reward: 100 },
+  { id: 'train1', text: 'Do pull-ups at the Training Bench', reward: 100 },
+  { id: 'bench1', text: 'Upgrade your Training Bench on its pad', reward: 150 },
   { id: 'food1', text: 'Buy new food', reward: 150 },
   { id: 'catch5', text: 'Catch 5 baddies', reward: 400 },
   { id: 'pen1', text: 'Upgrade your pen', reward: 800 },

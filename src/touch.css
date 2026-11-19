@@ -107,7 +107,8 @@
 
 .touch-top {
   position: absolute;
-  top: calc(var(--safe-t) + var(--pad));
+  /* Below Boxity's toolbar when it spans the whole width (narrow phones; hud.js sets --reserved-tr). */
+  top: calc(max(var(--safe-t), var(--reserved-tr, 0px)) + var(--pad));
   right: calc(var(--safe-r) + var(--pad));
   display: flex;
   gap: 10px;

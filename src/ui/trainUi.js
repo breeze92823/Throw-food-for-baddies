@@ -3,6 +3,10 @@
 // "+5 Throwing Strength" over it (each pop leaves a fading ghost that drifts up, so a
 // quick run of level ups stacks). It also bumps the HUD strength counter. Shown while
 // body.training is set.
+// Random XP boosts: drop(v) pops a round "x2 XP" button at a random spot (a ring drains as
+// it runs out); tapping it calls onGrab. While a boost runs, a pill under the pops counts it
+// down and the screen edges glow in its colour (body.trn-boosted).
+// benchUp(def) is the BENCH UPGRADED banner (shown in the hub too, not only while training).
 import './trainUi.css'
 import { TRAINING } from '../config.js'
 import { fmt } from '../game/format.js'
@@ -16,7 +20,7 @@ function el(tag, cls, html = '') {
 
 const HAND = `<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M26 8c3 0 5 2 5 5v17l2-1c2-6 9-5 9 0l1-1c2-5 9-4 9 1v1c2-4 8-3 8 2v13c0 9-6 16-15 16h-6c-6 0-10-3-13-8L16 38c-2-3 0-7 4-7 2 0 3 1 4 2l-3-2V13c0-3 2-5 5-5z" fill="#fff" stroke="#10131f" stroke-width="3.5" stroke-linejoin="round"/><path d="M33 36v8M42 36v8M51 37v7" stroke="#10131f" stroke-width="3" stroke-linecap="round"/></svg>`
 
-export function createTrainUi({ onStop, onTap }) {
+export function createTrainUi({ onStop, onTap, onGrab }) {
   const root = el('div', 'trn')
   const stop = el('button', 'trn-stop', 'STOP')
   stop.type = 'button'
@@ -30,8 +34,21 @@ export function createTrainUi({ onStop, onTap }) {
   tap.dataset.silent = ''
   tap.setAttribute('aria-label', 'Tap to train 2x faster')
   const pops = el('div', 'trn-pops')
-  root.append(pops, tap, stop, bar)
+  const edge = el('div', 'trn-edge')
+  const pill = el('div', 'trn-pill', '<b class="outline">x2 XP</b><span class="outline">10s</span><i></i>')
+  const pillMult = pill.querySelector('b')
+  const pillTime = pill.querySelector('span')
+  const pillFill = pill.querySelector('i')
+  const dropBtn = el('button', 'trn-drop', '<svg viewBox="0 0 100 100" aria-hidden="true"><circle class="trk" cx="50" cy="50" r="46"/><circle class="arc" cx="50" cy="50" r="46" pathLength="100"/></svg><b class="outline">x2</b><span class="outline">XP</span>')
+  dropBtn.type = 'button'
+  dropBtn.dataset.silent = ''
+  const dropMult = dropBtn.querySelector('b')
+  const dropArc = dropBtn.querySelector('.arc')
+  root.append(edge, pops, pill, dropBtn, tap, stop, bar)
   document.body.appendChild(root)
+  // The upgrade banner lives outside the overlay (you upgrade from the pad, not on the bar).
+  const banner = el('div', 'trn-banner')
+  document.body.appendChild(banner)
 
   stop.addEventListener('click', (e) => {
     e.stopPropagation()
@@ -42,6 +59,83 @@ export function createTrainUi({ onStop, onTap }) {
     e.stopPropagation()
     onTap()
   })
+
+  dropBtn.addEventListener('pointerdown', (e) => {
+    e.stopPropagation()
+    if (!dropBtn.classList.contains('up')) return
+    onGrab?.()
+  })
+
+  // --- Random XP boost button ---
+  let dropLife = 0
+  let dropT = 0
+  function drop(v, life) {
+    dropMult.textContent = `x${v.mult}`
+    dropBtn.style.setProperty('--c', v.color)
+    dropBtn.setAttribute('aria-label', `Tap for ${v.mult}x XP`)
+    // A random spot in the middle band of the screen, clear of STOP / the bar / the tap badge.
+    // Portrait phones: the HUD panels fill the top third, so keep to the band above STOP.
+    const portrait = innerHeight > innerWidth
+    const left = portrait ? 42 + Math.random() * 34 : 22 + Math.random() * 56
+    const top = portrait ? 40 + Math.random() * 16 : 24 + Math.random() * 30
+    dropBtn.style.left = `${left}%`
+    dropBtn.style.top = `${top}%`
+    dropBtn.classList.remove('up', 'gone', 'grab', 'big')
+    void dropBtn.offsetWidth
+    dropBtn.classList.add('up')
+    if (v.mult >= 5) dropBtn.classList.add('big')
+    dropLife = life
+    dropT = 0
+  }
+  function dropOff(grabbed = false) {
+    if (!dropBtn.classList.contains('up')) return
+    dropBtn.classList.remove('up')
+    dropBtn.classList.add(grabbed ? 'grab' : 'gone')
+  }
+  // --- Active XP boost (pill + edge glow) ---
+  let boostDur = 0
+  function xpBoost(v) {
+    if (!v) {
+      pill.classList.remove('on')
+      document.body.classList.remove('trn-boosted')
+      return
+    }
+    boostDur = v.dur
+    pillMult.textContent = `x${v.mult} XP`
+    root.style.setProperty('--bc', v.color)
+    document.body.style.setProperty('--trn-boost', v.color)
+    pill.classList.remove('on')
+    void pill.offsetWidth
+    pill.classList.add('on')
+    document.body.classList.add('trn-boosted')
+    const p = el('div', 'trn-grabpop outline', `x${v.mult} XP!`)
+    p.style.color = v.color
+    pops.appendChild(p)
+    setTimeout(() => p.remove(), 1400)
+  }
+  // Called every frame with the seconds left on the boost.
+  function tick(dt, left) {
+    if (dropBtn.classList.contains('up')) {
+      dropT += dt
+      dropArc.style.strokeDashoffset = `${Math.min(100, (dropT / dropLife) * 100)}`
+    }
+    if (left > 0) {
+      pillTime.textContent = `${Math.ceil(left)}s`
+      pillFill.style.width = `${(left / boostDur) * 100}%`
+    }
+  }
+
+  // --- BENCH UPGRADED banner ---
+  let bannerTimer = 0
+  function benchUp(def, tier, total) {
+    banner.innerHTML = `<div class="t outline">BENCH UPGRADED!</div><div class="n outline">${def.name}</div><div class="r outline">+${fmt(def.xps, 0)} XP/s  <small>(${tier + 1}/${total})</small></div>`
+    banner.style.setProperty('--c', def.glow === '#ffffff' ? '#ffd23a' : def.glow)
+    banner.classList.remove('show')
+    void banner.offsetWidth
+    banner.classList.add('show')
+    clearTimeout(bannerTimer)
+    bannerTimer = setTimeout(() => banner.classList.remove('show'), 2600)
+  }
 
   let shownFill = 0
   function setLevel(level, xp, need, { animate = true } = {}) {
@@ -110,10 +204,17 @@ export function createTrainUi({ onStop, onTap }) {
       if (!on) {
         tap.classList.remove('on', 'hit')
         tap.classList.remove('learned')
+        dropBtn.classList.remove('up', 'grab', 'big')
+        xpBoost(null)
       }
     },
     setLevel,
     levelUp,
+    drop,
+    dropOff,
+    xpBoost,
+    tick,
+    benchUp,
     boost,
     tapped,
     // After a few taps the "TAP!" hint goes away.
