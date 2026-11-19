@@ -1015,6 +1015,18 @@ export class Baddie {
       armXL = -0.7
       headNod = Math.sin(t * 14) * 0.12
       bob = Math.abs(Math.sin(t * 7)) * 0.04
+    } else if (m === 'feed') {
+      // Pick food up off the ground with both hands and eat it from them. The owner drives
+      // reach (bend down to it), hold (hands up in front of her mouth) and chomp (a bite), 0..1.
+      const r = this.reach ?? 0
+      const h = this.hold ?? 0
+      const c = this.chomp ?? 0
+      torsoLean = r * 0.75 - c * 0.06
+      bob = -r * 0.22
+      armXL = armXR = -0.35 * r - (1.75 + c * 0.3) * h
+      outL = outR = -0.05 * r - 0.28 * h
+      headNod = r * 0.35 + h * 0.12 - c * 0.1
+      mood = c > 0.3 ? 'happy' : 'open'
     } else if (m === 'fly') {
       armXL = -2.8
       armXR = -2.8

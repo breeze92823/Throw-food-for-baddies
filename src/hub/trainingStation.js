@@ -389,7 +389,7 @@ export function buildTrainingStation(root, { tier = 0 } = {}) {
   // Dashed ring round bench + pad, a soft glow disc and a pulse ring for each rep. The ring is
   // centred between the bar and the pad.
   const ringZ = TRAINING.padGap / 2
-  const ring = dashedRing(TRAINING.ringR, '#ffffff', 22)
+  const ring = dashedRing(TRAINING.ringR, '#ffffff', 30)
   ring.position.set(0, 0.02, ringZ)
   g.add(ring)
   const glowMat = new MeshBasicMaterial({ color: '#7dff4a', transparent: true, opacity: 0, blending: AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 })

@@ -492,9 +492,9 @@ thrower = createThrower(world, {
 // --- Training Place --------------------------------------------------------------------
 // Walk in under the bar: pull-ups earn training XP (the bench's XP/s), levels give strength; the
 // pad behind the bar upgrades the bench, random x2..x10 XP boost buttons pop up while you train
-// (game/training.js). Tap anywhere / Space / F / E for 2x; STOP, Q or walking gets off.
+// (game/training.js). Space / F / E (or a tap) grab the random 2x boost button; STOP, Q or walking gets off.
 let trainer = null
-const trainUi = createTrainUi({ onStop: () => trainer?.stop(), onTap: () => trainer?.tap(), onGrab: () => trainer?.grab() })
+const trainUi = createTrainUi({ onStop: () => trainer?.stop(), onGrab: () => trainer?.grab() })
 trainStation.setTier(state.benchTier(), false) // the saved bench
 trainer = createTrainer({
   fx,
@@ -519,13 +519,8 @@ trainer = createTrainer({
 })
 window.addEventListener('keydown', (e) => {
   if (!trainer.training || e.repeat || e.target instanceof HTMLInputElement) return
-  if (e.code === 'Space' || e.code === 'KeyF' || e.code === 'KeyE') trainer.tap()
+  if (e.code === 'Space' || e.code === 'KeyF' || e.code === 'KeyE') trainer.grab() // the boost button, when it is up
   else if (e.code === 'KeyQ' || e.code === 'Escape') trainer.stop()
-})
-window.addEventListener('pointerdown', (e) => {
-  if (!trainer.training || e.button > 0) return
-  if (e.target.closest?.('button, [role="button"], .win, .hud-left, .hotbar, .touch-btn, .joystick')) return
-  trainer.tap()
 })
 
 // --- Fuse -----------------------------------------------------------------------------
