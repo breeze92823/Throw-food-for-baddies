@@ -337,7 +337,6 @@ state.on('capacity', () => {
 })
 state.on('upgrade', (id) => {
   if (id === 'speed') applySpeed()
-  if (id === 'arms') hud.setStrength(state.totalStrength())
 })
 state.on('quest', (q) => {
   hud.questDone(q)

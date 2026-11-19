@@ -396,7 +396,7 @@ export const RARITIES = [
 export const RARITY_SLOTS = [0, 0, 1, 1, 2, 2, 3, 4, 5, 6]
 export const SLOT_ODDS = [2, 3, 5, 9, 16, 28, 60, 150, 500, 2000]
 export const SLOT_INCOME = [1, 1.5, 2.2, 3.2, 5, 8, 13, 22, 40, 80]
-export const AREA_INCOME = (a) => 2 * Math.pow(2.9, a)
+export const AREA_INCOME = (a) => 2 * Math.pow(2.2, a)
 export const INDEX_BONUS = 0.05 // +5% income for every area whose Index page is complete
 
 export const AREAS = [
@@ -693,78 +693,84 @@ export const FOOD_RARITIES = [
 ]
 
 // Foods you can throw (the Food Shop, ui/hud.js; models in game/foods.js). Bought once
-// with money and kept; buying one equips it. power scales throw range, luck scales the
-// rarity roll; both climb a little with every tier. kind = what it sounds like and how it
-// breaks up when it lands (crunch, squish, soft, meat, jelly, metal, cosmic).
+// with money and kept; buying one equips it. dist = the food's base throw distance in metres
+// (Throwing Strength multiplies it, see THROW), luck scales the rarity roll; both climb with
+// every tier. kind = what it sounds like and how it breaks up when it lands (crunch, squish,
+// soft, meat, jelly, metal, cosmic).
 // The Galaxy Donut is the reference art's premium-currency food: here it costs money like
 // everything else (priced a bit above the tier it matches), as the root CLAUDE.md requires.
-const FOOD_POWER = (tier) => Math.round(Math.pow(1.045, tier - 1) * 100) / 100
+// Pacing (tested in a progression sim): a player who throws and trains reaches the last area
+// in about 2 hours (the prices up to tier ~32 set that pace; above it they climb x1.7 a tier,
+// so the whole list takes about a day of top-end income).
+const FOOD_DIST = (tier) => Math.round(20 * Math.pow(1.08, tier - 1) * 10) / 10
 const FOOD_LUCK = (tier) => {
   const l = Math.pow(1.1, tier - 1)
   return l < 10 ? Math.round(l * 100) / 100 : Math.round(l * 10) / 10
 }
 const FOOD_LIST = [
-  // id, name, rarity, price, kind
+  // id, name, rarity, price (money; tuned tier by tier in a progression sim), kind
   ['carrot', 'Carrot', 0, 0, 'crunch'],
-  ['apple', 'Apple', 0, 15, 'crunch'],
-  ['banana', 'Banana', 0, 76, 'squish'],
-  ['orange', 'Orange', 0, 800, 'squish'],
-  ['strawberry', 'Strawberry', 1, 16e3, 'squish'],
-  ['pear', 'Pear', 1, 120e3, 'squish'],
-  ['lemon', 'Lemon', 1, 1e6, 'squish'],
-  ['cherry', 'Cherry', 1, 8e6, 'squish'],
-  ['grapes', 'Grapes', 2, 40e6, 'squish'],
-  ['corn', 'Corn', 2, 180e6, 'crunch'],
-  ['broccoli', 'Broccoli', 2, 800e6, 'crunch'],
-  ['mushroom', 'Mushroom', 2, 2e9, 'soft'],
-  ['eggplant', 'Eggplant', 3, 3e9, 'soft'],
-  ['avocado', 'Avocado', 3, 7e9, 'squish'],
-  ['watermelon', 'Watermelon Slice', 3, 16e9, 'squish'],
-  ['pineapple', 'Pineapple', 3, 42e9, 'crunch'],
-  ['toast', 'Toast', 4, 110e9, 'crunch'],
-  ['bread', 'Bread Loaf', 4, 290e9, 'soft'],
-  ['cheese', 'Cheese Wedge', 4, 760e9, 'soft'],
-  ['croissant', 'Croissant', 4, 2e12, 'soft'],
-  ['cookie', 'Cookie', 5, 5e12, 'crunch'],
-  ['pancakes', 'Pancakes', 5, 14e12, 'soft'],
-  ['donut', 'Donut', 5, 36e12, 'soft'],
-  ['chocolate', 'Chocolate Bar', 5, 95e12, 'crunch'],
-  ['lollipop', 'Lollipop', 6, 250e12, 'crunch'],
-  ['popsicle', 'Popsicle', 6, 550e12, 'jelly'],
-  ['cupcake', 'Cupcake', 6, 1e15, 'soft'],
-  ['icecream', 'Ice Cream', 6, 3e15, 'jelly'],
-  ['fries', 'Fries', 7, 5e15, 'crunch'],
-  ['hotdog', 'Hot Dog', 7, 10e15, 'meat'],
-  ['burger', 'Burger', 7, 20e15, 'meat'],
-  ['pizza', 'Pizza Slice', 7, 35e15, 'soft'],
-  ['taco', 'Taco', 7, 60e15, 'crunch'],
-  ['sushi', 'Sushi', 8, 110e15, 'meat'],
-  ['ramen', 'Ramen', 8, 190e15, 'jelly'],
-  ['drumstick', 'Drumstick', 8, 320e15, 'meat'],
-  ['steak', 'Steak', 9, 600e15, 'meat'],
-  ['cake', 'Cake Slice', 9, 1e18, 'soft'],
-  ['milkshake', 'Milkshake', 9, 2e18, 'jelly'],
-  ['goldenapple', 'Golden Apple', 9, 4e18, 'metal'],
-  ['dragonfruit', 'Dragon Fruit', 9, 10e18, 'squish'],
-  ['rainbowcake', 'Rainbow Cake', 9, 30e18, 'soft'],
-  ['dango', 'Dango', 9, 80e18, 'jelly'],
-  ['ghostpepper', 'Ghost Pepper', 9, 150e18, 'squish'],
-  ['lavacake', 'Lava Cake', 9, 300e18, 'jelly'],
-  ['hotwings', 'Hot Wings', 9, 600e18, 'meat'],
-  ['starfruit', 'Star Fruit', 10, 900e18, 'cosmic'],
-  ['mooncheese', 'Moon Cheese', 10, 2e21, 'cosmic'],
-  ['nebulajelly', 'Nebula Jelly', 10, 3e21, 'cosmic'],
+  ['apple', 'Apple', 0, 4, 'crunch'],
+  ['banana', 'Banana', 0, 6, 'squish'],
+  ['orange', 'Orange', 0, 10, 'squish'],
+  ['strawberry', 'Strawberry', 1, 15, 'squish'],
+  ['pear', 'Pear', 1, 24, 'squish'],
+  ['lemon', 'Lemon', 1, 39, 'squish'],
+  ['cherry', 'Cherry', 1, 76, 'squish'],
+  ['grapes', 'Grapes', 2, 160, 'squish'],
+  ['corn', 'Corn', 2, 390, 'crunch'],
+  ['broccoli', 'Broccoli', 2, 1000, 'crunch'],
+  ['mushroom', 'Mushroom', 2, 1800, 'soft'],
+  ['eggplant', 'Eggplant', 3, 3300, 'soft'],
+  ['avocado', 'Avocado', 3, 6100, 'squish'],
+  ['watermelon', 'Watermelon Slice', 3, 14e3, 'squish'],
+  ['pineapple', 'Pineapple', 3, 27e3, 'crunch'],
+  ['toast', 'Toast', 4, 52e3, 'crunch'],
+  ['bread', 'Bread Loaf', 4, 180e3, 'soft'],
+  ['cheese', 'Cheese Wedge', 4, 360e3, 'soft'],
+  ['croissant', 'Croissant', 4, 1.1e6, 'soft'],
+  ['cookie', 'Cookie', 5, 2.3e6, 'crunch'],
+  ['pancakes', 'Pancakes', 5, 5e6, 'soft'],
+  ['donut', 'Donut', 5, 11e6, 'soft'],
+  ['chocolate', 'Chocolate Bar', 5, 36e6, 'crunch'],
+  ['lollipop', 'Lollipop', 6, 110e6, 'crunch'],
+  ['popsicle', 'Popsicle', 6, 360e6, 'jelly'],
+  ['cupcake', 'Cupcake', 6, 1e9, 'soft'],
+  ['icecream', 'Ice Cream', 6, 4.6e9, 'jelly'],
+  ['fries', 'Fries', 7, 5.3e9, 'crunch'],
+  ['hotdog', 'Hot Dog', 7, 6.1e9, 'meat'],
+  ['burger', 'Burger', 7, 7.1e9, 'meat'],
+  ['pizza', 'Pizza Slice', 7, 17e9, 'soft'],
+  ['taco', 'Taco', 7, 29e9, 'crunch'],
+  ['sushi', 'Sushi', 8, 49e9, 'meat'],
+  ['ramen', 'Ramen', 8, 84e9, 'jelly'],
+  ['drumstick', 'Drumstick', 8, 140e9, 'meat'],
+  ['steak', 'Steak', 9, 240e9, 'meat'],
+  ['cake', 'Cake Slice', 9, 410e9, 'soft'],
+  ['milkshake', 'Milkshake', 9, 700e9, 'jelly'],
+  ['goldenapple', 'Golden Apple', 9, 1.2e12, 'metal'],
+  ['dragonfruit', 'Dragon Fruit', 9, 2e12, 'squish'],
+  ['rainbowcake', 'Rainbow Cake', 9, 3.4e12, 'soft'],
+  ['dango', 'Dango', 9, 5.8e12, 'jelly'],
+  ['ghostpepper', 'Ghost Pepper', 9, 9.9e12, 'squish'],
+  ['lavacake', 'Lava Cake', 9, 17e12, 'jelly'],
+  ['hotwings', 'Hot Wings', 9, 29e12, 'meat'],
+  ['starfruit', 'Star Fruit', 10, 49e12, 'cosmic'],
+  ['mooncheese', 'Moon Cheese', 10, 83e12, 'cosmic'],
+  ['nebulajelly', 'Nebula Jelly', 10, 140e12, 'cosmic'],
 ]
 export const FOODS = [
-  // Special: Robux in the reference, money here. Power of tier 14, luck of tier 16.
-  { id: 'galaxydonut', name: 'Galaxy Donut', rarity: 11, tier: 0, special: true, price: 9e9, power: FOOD_POWER(14), luck: FOOD_LUCK(16), kind: 'cosmic' },
-  ...FOOD_LIST.map(([id, name, rarity, price, kind], i) => ({ id, name, rarity, tier: i + 1, price, power: FOOD_POWER(i + 1), luck: FOOD_LUCK(i + 1), kind })),
+  // Special: Robux in the reference, money here. Distance of tier 14, luck of tier 16, priced as tier 17.
+  { id: 'galaxydonut', name: 'Galaxy Donut', rarity: 11, tier: 0, special: true, price: 52e3, dist: FOOD_DIST(14), luck: FOOD_LUCK(16), kind: 'cosmic' },
+  ...FOOD_LIST.map(([id, name, rarity, price, kind], i) => ({ id, name, rarity, tier: i + 1, price, dist: FOOD_DIST(i + 1), luck: FOOD_LUCK(i + 1), kind })),
 ]
 export const STARTER_FOOD = 'carrot'
 
+// Throw range = the food's distance x (1 + strength bonus), at most maxRange. The bonus is
+// strengthPct per Throwing Strength point (training levels give 5, every throw 1), capped.
 export const THROW = {
-  baseRange: 12, // m with no strength
-  perStrength: 0.3, // m of range per strength point (before food power)
+  strengthPct: 0.00125, // +0.125% range per strength point
+  strengthCap: 3, // at most +300%
   maxRange: 376, // the lane is about this long past the throw line
   flightTime: [1.1, 3.8], // s in the air at no range / max range
   strengthPerThrow: 1,
@@ -792,21 +798,21 @@ export const TRAINING = {
   grip: { drop: 0.05, top: 0.14, forward: 0.06 }, // hand centre under the bar, shoulders at the top, bar ahead of the shoulders
   rep: { up: 0.32, hold: 0.1, down: 0.42, rest: 0.1 }, // s per phase at 1x speed
   strengthPerLevel: 5,
-  // XP to finish a level: about 3 reps at level 1 on the first bench, growing slowly.
-  need: (level) => Math.round(Math.round(4 + level * 0.12) * (3 + level * 0.08)),
+  // XP to finish a level: about 3 reps at level 1 on the first bench, +4% every level.
+  need: (level) => Math.round(10 * Math.pow(1.04, level)),
   // The benches, in order: XP per second of training at 1x, the money price to upgrade INTO it,
   // and its look (`style` picks the model, `colors` its palette, `glow` its accent light).
   benches: [
     { name: 'Rookie Logs', xps: 4, price: 0, style: 'logs', colors: ['#9a6334', '#6e4220', '#c99a5e', '#e8d6a8'], glow: '#ffd27a' },
-    { name: 'Brick Gym', xps: 8, price: 150, style: 'brick', colors: ['#f6f8fc', '#dde3ee', '#c4ccdb', '#2a2f3d'], glow: '#ffffff' },
-    { name: 'Iron Rig', xps: 14, price: 1200, style: 'iron', colors: ['#5d6678', '#3a4150', '#e0313f', '#cfd6e2'], glow: '#ff5a5a' },
-    { name: 'Neon Arena', xps: 24, price: 9000, style: 'neon', colors: ['#1d2236', '#10131f', '#25e8ff', '#ff3df2'], glow: '#25e8ff' },
-    { name: 'Golden Temple', xps: 40, price: 70e3, style: 'gold', colors: ['#ffc93a', '#d99a12', '#c4202f', '#fff2b0'], glow: '#ffd34f' },
-    { name: 'Frost Crystal', xps: 65, price: 500e3, style: 'ice', colors: ['#bfeaff', '#7cc8f2', '#ffffff', '#3d8fd6'], glow: '#9fe8ff' },
-    { name: 'Lava Forge', xps: 105, price: 4e6, style: 'lava', colors: ['#3e3446', '#241c2a', '#ff6a1a', '#ffd23a'], glow: '#ff6a1a' },
-    { name: 'Royal Diamond', xps: 170, price: 30e6, style: 'royal', colors: ['#7a3cf0', '#4a1fa8', '#ffffff', '#ffd34f'], glow: '#c79bff' },
-    { name: 'Celestial Gate', xps: 270, price: 220e6, style: 'celestial', colors: ['#fff6e0', '#ffe7a3', '#8a7aff', '#ffd34f'], glow: '#fff3c4' },
-    { name: 'Cosmic Titan', xps: 430, price: 1.6e9, style: 'cosmic', colors: ['#1a1240', '#0a0820', '#ff7af2', '#7ffce0'], glow: '#ff7af2' },
+    { name: 'Brick Gym', xps: 6, price: 150, style: 'brick', colors: ['#f6f8fc', '#dde3ee', '#c4ccdb', '#2a2f3d'], glow: '#ffffff' },
+    { name: 'Iron Rig', xps: 9, price: 1400, style: 'iron', colors: ['#5d6678', '#3a4150', '#e0313f', '#cfd6e2'], glow: '#ff5a5a' },
+    { name: 'Neon Arena', xps: 14, price: 12e3, style: 'neon', colors: ['#1d2236', '#10131f', '#25e8ff', '#ff3df2'], glow: '#25e8ff' },
+    { name: 'Golden Temple', xps: 20, price: 110e3, style: 'gold', colors: ['#ffc93a', '#d99a12', '#c4202f', '#fff2b0'], glow: '#ffd34f' },
+    { name: 'Frost Crystal', xps: 30, price: 1e6, style: 'ice', colors: ['#bfeaff', '#7cc8f2', '#ffffff', '#3d8fd6'], glow: '#9fe8ff' },
+    { name: 'Lava Forge', xps: 46, price: 9e6, style: 'lava', colors: ['#3e3446', '#241c2a', '#ff6a1a', '#ffd23a'], glow: '#ff6a1a' },
+    { name: 'Royal Diamond', xps: 68, price: 80e6, style: 'royal', colors: ['#7a3cf0', '#4a1fa8', '#ffffff', '#ffd34f'], glow: '#c79bff' },
+    { name: 'Celestial Gate', xps: 103, price: 720e6, style: 'celestial', colors: ['#fff6e0', '#ffe7a3', '#8a7aff', '#ffd34f'], glow: '#fff3c4' },
+    { name: 'Cosmic Titan', xps: 154, price: 6.5e9, style: 'cosmic', colors: ['#1a1240', '#0a0820', '#ff7af2', '#7ffce0'], glow: '#ff7af2' },
   ],
   // Random XP boosts: while you train a round "2x" tap button pops up somewhere on screen at a
   // random time (it is never there all the time); tap it before it runs out and every rep pays
@@ -892,7 +898,7 @@ export const ECONOMY = {
 // The Shop. Money only: nothing in this game costs premium currency.
 export const UPGRADES = [
   { id: 'cash', name: 'Cash Boost', desc: '+25% income', max: 10, cost: (l) => Math.round(600 * Math.pow(4, l)) },
-  { id: 'arms', name: 'Iron Arms', desc: '+20 strength', max: 25, cost: (l) => Math.round(200 * Math.pow(2.6, l)) },
+  { id: 'arms', name: 'Iron Arms', desc: '+20% training XP', max: 25, xpPerLevel: 0.2, cost: (l) => Math.round(200 * Math.pow(2.6, l)) },
   { id: 'luck', name: 'Lucky Charm', desc: '+20% luck', max: 10, cost: (l) => Math.round(1500 * Math.pow(4.5, l)) },
   { id: 'speed', name: 'Speedy Shoes', desc: '+10% walk speed', max: 5, cost: (l) => Math.round(400 * Math.pow(3, l)) },
 ]

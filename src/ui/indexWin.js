@@ -37,7 +37,7 @@ export function createIndexView({ sfx, girlSfx }) {
   let observer = null
 
   const owned = (id) => state.owned().filter((e) => e.b.id === id).length
-  const signature = () => BADDIES.map((b) => (state.S.discovered[b.id] ? 1 : 0)).join('') + '|' + Math.floor(state.range()) + '|' + state.owned().map((e) => e.b.id).join(',')
+  const signature = () => BADDIES.map((b) => (state.S.discovered[b.id] ? 1 : 0)).join('') + '|' + Math.floor(state.range()) + '|' +state.owned().map((e) => e.b.id).join(',')
 
   function cardStyle(e, def) {
     const r = RARITIES[def.rarity]
