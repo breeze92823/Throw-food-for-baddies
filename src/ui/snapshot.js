@@ -60,10 +60,10 @@ function shoot(obj, { headOnly = false, yaw = 0.35 } = {}) {
   return url
 }
 
-export function baddiePortrait(id, sizeIdx = 0, headOnly = false) {
-  const key = `b|${id}|${sizeIdx}|${headOnly}`
+export function baddiePortrait(id, sizeIdx = 0, headOnly = false, variant = 0) {
+  const key = `b|${id}|${sizeIdx}|${headOnly}|${variant | 0}`
   if (!cache.has(key)) {
-    const b = portraitModel(id, 0)
+    const b = portraitModel(id, 0, variant | 0)
     if (headOnly) b.mode = 'idle'
     cache.set(key, shoot(b.group, { headOnly }))
   }

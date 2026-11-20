@@ -9,13 +9,13 @@
 // the owner turns into hearts, sparkles and sounds. Her face texture swaps for blinks, the
 // kiss wink, heart eyes and a shy look.
 import { AdditiveBlending, CanvasTexture, Color, ConeGeometry, DoubleSide, Group, IcosahedronGeometry, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, RingGeometry, Sprite, SRGBColorSpace, TorusGeometry } from 'three'
-import { BADDIES, RARITIES, SIZES } from '../config.js'
+import { BADDIES, RARITIES, SEASON_GIRLS, SIZES, VARIANTS } from '../config.js'
 import { label } from '../propkit.js'
 import { cbox, ccyl, cgeo, merge } from '../hub/geo.js'
 import { paintFace } from '../hub/paint.js'
 import { fmt } from './format.js'
 
-export const BY_ID = Object.fromEntries(BADDIES.map((b) => [b.id, b]))
+export const BY_ID = Object.fromEntries([...BADDIES, ...SEASON_GIRLS].map((b) => [b.id, b]))
 const bodyMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.58, metalness: 0 })
 const shinyMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.22, metalness: 0.7 })
 const glowMat = new MeshBasicMaterial({ vertexColors: true, color: new Color(1.7, 1.7, 1.7) }) // HDR: blooms where bloom is on
@@ -757,27 +757,59 @@ function auraMat(rarity) {
   return auraMats.get(rarity)
 }
 
+// Variants (config VARIANTS): the body tinted gold / ice-blue / cycling rainbow, plus a ring.
+const variantMats = new Map()
+function variantMat(v) {
+  if (!v || !VARIANTS[v]) return null
+  if (!variantMats.has(v)) {
+    const V = VARIANTS[v]
+    variantMats.set(v, new MeshStandardMaterial({ vertexColors: true, color: V.color, roughness: 0.3, metalness: v === 1 ? 0.55 : 0.25, emissive: V.color, emissiveIntensity: 0.18 }))
+  }
+  return variantMats.get(v)
+}
+const variantRings = new Map()
+function variantRingMat(v) {
+  if (!variantRings.has(v)) variantRings.set(v, new MeshBasicMaterial({ color: VARIANTS[v].glow, transparent: true, opacity: 0.65, blending: AdditiveBlending, depthWrite: false, side: DoubleSide }))
+  return variantRings.get(v)
+}
+// The rainbow variant's colour cycles (one shared material, stepped at most 30 times a second).
+let rainbowFrame = -1
+const rainbowColor = new Color()
+const RAINBOW = VARIANTS.findIndex((x) => x.rainbow)
+function tickRainbow(t) {
+  const f = Math.floor(t * 30)
+  if (f === rainbowFrame) return
+  rainbowFrame = f
+  const m = variantMats.get(RAINBOW)
+  if (!m) return
+  rainbowColor.setHSL((t * 0.25) % 1, 0.85, 0.72)
+  m.color.copy(rainbowColor)
+  m.emissive.copy(rainbowColor)
+  variantRings.get(RAINBOW)?.color.copy(rainbowColor)
+}
+
 const labelCache = new Map()
-function labelFor(def, size) {
-  const key = `${def.id}|${size}`
-  if (!labelCache.has(key)) labelCache.set(key, makeLabel(def, size))
+function labelFor(def, size, v = 0, income = null) {
+  const key = `${def.id}|${size}|${v}|${income ?? ''}`
+  if (!labelCache.has(key)) labelCache.set(key, makeLabel(def, size, v, income))
   const base = labelCache.get(key)
   const s = new Sprite(base.material)
   s.userData.base = base
   s.scale.copy(base.scale)
   return s
 }
-function makeLabel(def, size) {
+function makeLabel(def, size, v = 0, income = null) {
   const sz = SIZES[size]
   const lines = []
   const colors = []
-  if (sz.name) {
-    lines.push(sz.name)
-    colors.push('#ffffff')
+  const top = [VARIANTS[v]?.name, sz.name].filter(Boolean).join(' ')
+  if (top) {
+    lines.push(top)
+    colors.push(VARIANTS[v]?.name ? VARIANTS[v].color : '#ffffff')
   }
   lines.push(def.name)
   colors.push(RARITIES[def.rarity].color)
-  lines.push(`$${fmt(def.income * sz.mult)}/s`)
+  lines.push(`$${fmt(income ?? def.income * sz.mult * (VARIANTS[v]?.mult ?? 1))}/s`)
   colors.push('#7dff4a')
   return label(lines.join('\n'), 0.42 * lines.length, { colors, outline: '#10131f', outlineWidth: 16, font: '700 80px Fredoka, "Arial Black", sans-serif' })
 }
@@ -789,15 +821,18 @@ const MOOD = { kiss: 'kiss', heart: 'love', shy: 'shy', pose: 'kiss' }
 let uid = 0
 const BASE_SCALE = 0.74 // a normal-size girl stands a head taller than the player
 export class Baddie {
-  constructor(id, size = 0, { showLabel = true } = {}) {
+  // variant: VARIANTS index; income: the $/s printed on the label (defaults to the def's figure).
+  constructor(id, size = 0, { showLabel = true, variant = 0, income = null } = {}) {
     this.uid = ++uid
     this.def = BY_ID[id]
     this.size = size
+    this.variant = variant | 0
     this.group = new Group()
     this.body = new Group() // scaled by the size step; bob/jump/spin live here
     this.group.add(this.body)
     const p = parts(this.def)
-    const mk = (geo, mat = bodyMat, shadow = true) => {
+    const skinMat = variantMat(this.variant) ?? bodyMat
+    const mk = (geo, mat = skinMat, shadow = true) => {
       const m = new Mesh(geo, mat)
       m.castShadow = shadow
       m.receiveShadow = shadow
@@ -899,8 +934,14 @@ export class Baddie {
         this.group.add(this.rays)
       }
     }
+    if (this.variant && VARIANTS[this.variant]) {
+      this.vring = new Mesh(auraGeo, variantRingMat(this.variant))
+      this.vring.position.y = 0.08
+      this.vring.scale.setScalar(SIZES[size].scale * 1.05)
+      this.group.add(this.vring)
+    }
     if (showLabel) {
-      this.label = labelFor(this.def, size)
+      this.label = labelFor(this.def, size, this.variant, income)
       this.label.position.y = 2.95 * BASE_SCALE * SIZES[size].scale + 0.55
       this.label.renderOrder = 5
       this.group.add(this.label)
@@ -952,6 +993,10 @@ export class Baddie {
   update(dt) {
     this.t += dt
     const t = this.t
+    if (this.variant) {
+      tickRainbow(performance.now() / 1000)
+      if (this.vring) this.vring.rotation.y += dt * 0.8
+    }
     const k = Math.min(1, dt * 12)
     const lerp = (o, key, v) => (o[key] += (v - o[key]) * k)
     let legL = 0
@@ -1197,10 +1242,11 @@ export class Baddie {
 }
 
 // A portrait-ready copy (no label, no aura) for UI snapshots.
-export function portraitModel(id, size = 0) {
-  const b = new Baddie(id, size, { showLabel: false })
+export function portraitModel(id, size = 0, variant = 0) {
+  const b = new Baddie(id, size, { showLabel: false, variant })
   if (b.aura) b.group.remove(b.aura)
   if (b.rays) b.group.remove(b.rays)
+  if (b.vring) b.group.remove(b.vring)
   b.blinkIn = 99
   b.update(0.016)
   b.setMood('open')

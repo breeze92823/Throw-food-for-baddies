@@ -657,6 +657,19 @@ button.card:active {
 .card .tag.huge {
   background: #ffb020;
 }
+/* Variant stamp (GOLD / DIAMOND / RAINBOW) under the size tag. */
+.card .vtag {
+  position: absolute;
+  top: 1.7em;
+  left: 0.3em;
+  padding: 0.05em 0.4em;
+  border-radius: 0.4em;
+  background: var(--vc, #ffd23a);
+  color: #10131f;
+  font-size: 0.68em;
+  font-weight: 700;
+  z-index: 1;
+}
 .card .count {
   position: absolute;
   top: 0.3em;

@@ -210,14 +210,20 @@ function reportRoom(room) {
   bloxity.partyJoined(room.roomId)
 }
 
-// Typed gameplay events the server relays from the other players: 'throwFx' { sid, food, from, to,
-// dur, peak, power, lucky } and 'emoteFx' { sid, id }.
+// Typed server events: 'throwFx' { sid, food, from, to, dur, peak, power, lucky } and 'emoteFx'
+// { sid, id } relayed from the other players; 'spins' / 'spinResult' (spin wheel), 'daily' /
+// 'dailyResult' (Daily Reward), 'boss' / 'bossWin' (the Hungry Giant). The STICKY ones are kept
+// and replayed to a listener that subscribes after they arrived (they come right after the load).
 const eventListeners = new Map()
+const STICKY = new Set(['spins', 'daily', 'boss'])
+const lastEvent = new Map()
 export function onEvent(type, fn) {
   if (!eventListeners.has(type)) eventListeners.set(type, new Set())
   eventListeners.get(type).add(fn)
+  if (lastEvent.has(type)) fn(lastEvent.get(type))
   return () => eventListeners.get(type)?.delete(fn)
 }
+const SERVER_EVENTS = ['throwFx', 'emoteFx', 'spins', 'spinResult', 'daily', 'dailyResult', 'boss', 'bossWin']
 
 // Rewarded ads: asks the server to verify the ad's reward token with Bloxity. Resolves { ok, reason }
 // (ok = true: grant the reward). Offline there is nothing to verify against: { ok: null }.
@@ -318,8 +324,11 @@ function attach(room) {
     adWaiters.delete(m?.placement)
     done?.(m)
   })
-  for (const type of ['throwFx', 'emoteFx']) {
-    room.onMessage(type, (m) => emit(eventListeners.get(type) ?? [], m))
+  for (const type of SERVER_EVENTS) {
+    room.onMessage(type, (m) => {
+      if (STICKY.has(type)) lastEvent.set(type, m)
+      emit(eventListeners.get(type) ?? [], m)
+    })
   }
   // Server messages this client does not use yet: swallow them without the SDK's console warning.
   room.onMessage('invites', (m) => emit(inviteListeners, Number(m?.invites) || 0))
@@ -327,7 +336,7 @@ function attach(room) {
     lastBoards = m
     emit(boardListeners, m)
   })
-  for (const type of ['noProgress', 'progress', 'spins', 'daily']) room.onMessage(type, () => {})
+  for (const type of ['noProgress', 'progress']) room.onMessage(type, () => {})
   room.onStateChange(() => publishRoster(room))
   publishRoster(room)
   room.onDrop?.(() => setStatus('reconnecting')) // the SDK reconnects with the same seat by itself

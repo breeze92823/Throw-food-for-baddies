@@ -18,6 +18,11 @@ import { APPEAL_SFX } from '../audio/girlSfx.js'
 import { BY_ID, Baddie } from './baddieModel.js'
 import { fmt } from './format.js'
 
+// What one of your own pen's entries earns (main.js sets it to state.baddieIncome; a module
+// hook so this file does not import the game state).
+let incomeOf = null
+export const setIncomeFn = (fn) => (incomeOf = fn)
+
 const vc = new MeshStandardMaterial({ vertexColors: true, roughness: 0.7 })
 const rnd = (a, b) => a + Math.random() * (b - a)
 // Appeal moves, weighted: close to the player (flirty) and from across the pen (showing off).
@@ -305,11 +310,11 @@ export class Pen {
       }
     }
     for (const [key, n] of want) {
-      const [id, size] = key.split(':')
+      const [id, size, v] = key.split(':')
       if (!BY_ID[id]) continue
       for (let i = 0; i < n; i++) {
         const uid = `r${this.index}-${(this.remoteSeq = (this.remoteSeq ?? 0) + 1)}`
-        this.add({ uid, id, size: Number(size) || 0 }, { drop: !first })
+        this.add({ uid, id, size: Number(size) || 0, v: Number(v) || 0 }, { drop: !first })
         this.remoteUids.set(uid, key)
       }
     }
@@ -342,7 +347,7 @@ export class Pen {
   // entry: { uid, id, size }. from: optional world position it arrives from (drops in).
   // at: place it there (hand placement) with a short hop down instead of a random spot.
   add(entry, { drop = false, at = null } = {}) {
-    const b = new Baddie(entry.id, entry.size)
+    const b = new Baddie(entry.id, entry.size, { variant: entry.v | 0, income: this.isPlayer ? (incomeOf?.(entry) ?? null) : null })
     const spot = at ? new Vector3(at.x, PENS.floorHeight, at.z) : this.randomSpot()
     b.group.position.copy(spot)
     b.group.rotation.y = rnd(-Math.PI, Math.PI)

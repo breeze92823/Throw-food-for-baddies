@@ -601,6 +601,35 @@ const niceRound = (v) => {
   return Math.round(v / p) * p
 }
 // Every girl, flattened: { id, name, area, slot, rarity, odds, income, look }.
+// A girl's look from her short keys (see AREAS above); `place` = { fx, fxColors } for her particles.
+const lookOf = (g, skinIdx, place) => ({
+  skin: g.sk ?? SKINS[skinIdx % SKINS.length],
+  hair: g.hc,
+  hair2: g.h2 ?? null,
+  hairStyle: g.hs,
+  eyes: g.e,
+  outfit: g.o,
+  top: g.t,
+  bottom: g.b,
+  accent: g.a ?? '#ffffff',
+  shoes: g.sh ?? g.b,
+  hat: g.hat ?? null,
+  hatColor: g.hatC ?? g.a ?? '#ffffff',
+  eyewear: g.ew ?? null,
+  eyewearColor: g.ewC ?? '#202028',
+  neck: g.nk ?? null,
+  neckColor: g.nkC ?? g.a ?? '#ffffff',
+  wings: g.w ?? null,
+  wingColor: g.wC ?? '#ffffff',
+  tail: g.tl ?? null,
+  tailColor: g.tlC ?? g.hc,
+  held: g.hd ?? null,
+  heldColor: g.hdC ?? '#ffffff',
+  glow: !!g.glow,
+  fx: place.fx,
+  fxColors: place.fxColors,
+})
+// Every lane girl, flattened (see above).
 export const BADDIES = AREAS.flatMap((area, ai) => {
   const shift = Math.floor(ai / 3)
   return area.girls.map((g, slot) => ({
@@ -611,36 +640,9 @@ export const BADDIES = AREAS.flatMap((area, ai) => {
     rarity: Math.min(RARITIES.length - 1, RARITY_SLOTS[slot] + shift),
     odds: niceRound(SLOT_ODDS[slot] * (1 + ai * 0.35)),
     income: niceRound(AREA_INCOME(ai) * SLOT_INCOME[slot]),
-    look: {
-      skin: g.sk ?? SKINS[(ai * 7 + slot * 3) % SKINS.length],
-      hair: g.hc,
-      hair2: g.h2 ?? null,
-      hairStyle: g.hs,
-      eyes: g.e,
-      outfit: g.o,
-      top: g.t,
-      bottom: g.b,
-      accent: g.a ?? '#ffffff',
-      shoes: g.sh ?? g.b,
-      hat: g.hat ?? null,
-      hatColor: g.hatC ?? g.a ?? '#ffffff',
-      eyewear: g.ew ?? null,
-      eyewearColor: g.ewC ?? '#202028',
-      neck: g.nk ?? null,
-      neckColor: g.nkC ?? g.a ?? '#ffffff',
-      wings: g.w ?? null,
-      wingColor: g.wC ?? '#ffffff',
-      tail: g.tl ?? null,
-      tailColor: g.tlC ?? g.hc,
-      held: g.hd ?? null,
-      heldColor: g.hdC ?? '#ffffff',
-      glow: !!g.glow,
-      fx: area.fx,
-      fxColors: area.fxColors,
-    },
+    look: lookOf(g, ai * 7 + slot * 3, area),
   }))
 })
-
 // The lane areas as z ranges: twelve equal stretches from the lane mouth to its far end.
 {
   const L = HUB.lane
@@ -662,7 +664,149 @@ export const SIZES = [
   { name: '', scale: 1, mult: 1 },
   { name: 'BIG', scale: 1.4, mult: 4 },
   { name: 'HUGE', scale: 2, mult: 20 },
+  { name: 'GIANT', scale: 2.5, mult: 100 },
+  { name: 'TITAN', scale: 3, mult: 500 },
 ]
+
+// Variants: a rare shiny version of any girl, rolled on every catch (`v` on a pen / hotbar
+// entry). chance = 1 in N before boosts (the featured-area event multiplies it). Fusing needs
+// three of the same girl, size AND variant; the result keeps the variant.
+export const VARIANTS = [
+  { name: '', mult: 1, chance: 0 },
+  { name: 'GOLD', mult: 2, chance: 20, color: '#ffd23a', glow: '#ffe680' },
+  { name: 'DIAMOND', mult: 5, chance: 200, color: '#7ae8ff', glow: '#c8f6ff' },
+  { name: 'RAINBOW', mult: 15, chance: 2000, color: '#ff7af2', glow: '#ffffff', rainbow: true },
+]
+
+// Live events (game/events.js). All of them run on the UTC clock, so every player sees the same
+// ones at the same time without a server. Money / Wins / earned tickets only: no premium currency.
+export const EVENTS = {
+  luckHour: { every: 60, length: 10, luck: 2 }, // the first `length` minutes of every hour: luck x2
+  weekend: { income: 2 }, // Saturday and Sunday (UTC): income x2
+  featured: { every: 30, luck: 1.5, variant: 3 }, // one area at a time: luck x1.5, variants x3 as likely
+  // The Hungry Giant (game/boss.js; the server counts a room's throws): turns up at these minutes
+  // past every hour for `length` minutes; every throw anyone in the room makes feeds her.
+  boss: { at: [20, 50], length: 4, needPerPlayer: 8, rewardSecs: 60, perThrowSecs: 10, maxSecs: 180, tickets: 10 },
+}
+
+// Seasonal events: one theme at a time, `days` long each, cycling from `anchor` (UTC ms). While a
+// season runs, a throw sometimes brings one of its girls out instead of a lane girl (`chance` =
+// 1 in N), every throw pays `ticketsPerThrow` Event Tickets and a season girl pays `ticketsPerGirl`.
+// Tickets are earned only (never bought) and are spent in the event shop (EVENT_SHOP).
+export const SEASON = { anchor: Date.UTC(2026, 0, 5), days: 14, chance: 18, ticketsPerThrow: 1, ticketsPerGirl: 5 }
+// A season girl earns like a girl of the area she was caught in (`a` on her entry):
+// AREA_INCOME(a) x SLOT_INCOME[slot]. Odds are within the season's own four.
+const SEASON_SLOTS = [
+  { rarity: 3, odds: 5, slot: 4 },
+  { rarity: 4, odds: 20, slot: 5 },
+  { rarity: 5, odds: 80, slot: 6 },
+  { rarity: 6, odds: 400, slot: 8 },
+]
+export const SEASONS = [
+  {
+    id: 'candy', name: 'Candy Carnival', icon: '\u{1F36C}', color: '#ff7ac8', banner: ['#ff9ad8', '#c42f8a'], fx: 'gems', fxColors: ['#ff9ad8', '#ffffff', '#7ae8ff', '#ffe680'],
+    girls: [
+      { n: 'Gumdrop', hs: 'twintails', hc: '#ff7ac8', h2: '#ffffff', e: '#ff3fa8', o: 'skirt', t: '#ffffff', b: '#ff7ac8', a: '#7ae8ff', sh: '#ff7ac8', hat: 'bow', hatC: '#7ae8ff', hd: 'icecream', hdC: '#ff9ad8' },
+      { n: 'Taffeta', hs: 'buns', hc: '#9a6bff', h2: '#ffd6f0', e: '#ff6fa8', o: 'dress', t: '#ffd6f0', b: '#9a6bff', a: '#ffffff', sh: '#ffffff', hat: 'catEars', hatC: '#9a6bff', tl: 'cat', tlC: '#9a6bff' },
+      { n: 'Bonbonne', hs: 'curly', hc: '#6a3b1e', h2: '#ffb3d9', e: '#ff4f8a', o: 'gown', t: '#ff4f8a', b: '#ffd6f0', a: '#6a3b1e', sh: '#6a3b1e', hat: 'crown', hatC: '#ffd23a', hd: 'wand', hdC: '#ff4f8a', w: 'fairy', wC: '#ffd6f0' },
+      { n: 'Sugarstar', hs: 'long', hc: '#ffffff', h2: '#ff9ad8', e: '#7a4bff', o: 'gown', t: '#fff0fa', b: '#ff9ad8', a: '#ffd23a', sh: '#ffffff', hat: 'tiara', hatC: '#ffd23a', w: 'butterfly', wC: '#ff9ad8', hd: 'staff', hdC: '#ffd23a', glow: true },
+    ],
+  },
+  {
+    id: 'frost', name: 'Frost Festival', icon: '\u{2744}\u{FE0F}', color: '#7ae8ff', banner: ['#9ff0ff', '#2f7cc8'], fx: 'snow', fxColors: ['#ffffff', '#c8f6ff', '#9fd8ff'],
+    girls: [
+      { n: 'Mittens', hs: 'bob', hc: '#e8f4ff', e: '#3d8fd6', o: 'overalls', t: '#ff5a5a', b: '#3d8fd6', sh: '#ffffff', hat: 'earmuffs', hatC: '#ff5a5a', nk: 'scarf', nkC: '#ff5a5a' },
+      { n: 'Snowdrop', hs: 'ponytail', hc: '#bfeaff', h2: '#ffffff', e: '#2f7cc8', o: 'skirt', t: '#ffffff', b: '#7cc8f2', a: '#ffffff', sh: '#7cc8f2', hat: 'beanie', hatC: '#7cc8f2', hd: 'lantern', hdC: '#ffe680' },
+      { n: 'Aurora', hs: 'wavy', hc: '#c8a0ff', h2: '#7ae8ff', e: '#7a4bff', o: 'kimono', t: '#e6d8ff', b: '#7ae8ff', a: '#ffffff', sh: '#ffffff', hat: 'starClip', hatC: '#7ae8ff', w: 'fairy', wC: '#7ae8ff' },
+      { n: 'Glacielle', hs: 'hime', hc: '#ffffff', h2: '#9fe8ff', e: '#3d8fd6', o: 'gown', t: '#e8f8ff', b: '#9fe8ff', a: '#ffffff', sh: '#bfeaff', hat: 'crown', hatC: '#bfeaff', w: 'angel', wC: '#ffffff', hd: 'staff', hdC: '#9fe8ff', glow: true },
+    ],
+  },
+  {
+    id: 'moon', name: 'Spooky Moon', icon: '\u{1F383}', color: '#ff8a2e', banner: ['#ffa84a', '#5a2a8a'], fx: 'embers', fxColors: ['#ff8a2e', '#b07cff', '#ffe14a'],
+    girls: [
+      { n: 'Pumpkina', hs: 'pixie', hc: '#ff8a2e', e: '#3a7a3a', o: 'dress', t: '#ff8a2e', b: '#2a1a1a', a: '#3fd23a', sh: '#2a1a1a', hat: 'witch', hatC: '#2a1a3a' },
+      { n: 'Batsy', hs: 'sidetail', hc: '#2a1a2a', h2: '#b07cff', e: '#ff3a5a', o: 'skirt', t: '#2a1a2a', b: '#b07cff', a: '#ff3a5a', sh: '#2a1a2a', hat: 'bow', hatC: '#ff3a5a', w: 'bat', wC: '#3a2a4a' },
+      { n: 'Hexie', hs: 'long', hc: '#7a4bff', h2: '#3fd23a', e: '#3fd23a', o: 'gown', t: '#3a2a5a', b: '#7a4bff', a: '#3fd23a', sh: '#2a1a3a', hat: 'witch', hatC: '#7a4bff', hd: 'broom', hdC: '#c89a5e' },
+      { n: 'Moonshade', hs: 'hime', hc: '#e8e8ff', h2: '#b07cff', e: '#ffd23a', o: 'gown', t: '#2a2040', b: '#b07cff', a: '#ffd23a', sh: '#2a2040', hat: 'horns', hatC: '#b07cff', w: 'dragon', wC: '#5a3a8a', hd: 'lantern', hdC: '#ffd23a', glow: true },
+    ],
+  },
+]
+// Season girls (SEASONS): area -1 (not in a lane area's Index page), `season` = the season id,
+// `incomeSlot` = the SLOT_INCOME step she earns at in the area she was caught in (entry `a`).
+// `income` is her Sunny Meadow figure (for display before she is caught).
+export const SEASON_GIRLS = SEASONS.flatMap((season, si) =>
+  season.girls.map((g, i) => ({
+    id: `${season.id}_${g.n.toLowerCase().replace(/[^a-z0-9]+/g, '')}`,
+    name: g.n,
+    area: -1,
+    season: season.id,
+    slot: i,
+    rarity: SEASON_SLOTS[i].rarity,
+    odds: SEASON_SLOTS[i].odds,
+    incomeSlot: SEASON_SLOTS[i].slot,
+    income: niceRound(AREA_INCOME(0) * SLOT_INCOME[SEASON_SLOTS[i].slot]),
+    look: lookOf(g, si * 5 + i * 3 + 1, season),
+  })),
+)
+// What a season girl earns when caught in area `a`.
+export const seasonIncome = (def, a) => niceRound(AREA_INCOME(Math.max(0, a | 0)) * SLOT_INCOME[def.incomeSlot ?? 0])
+
+// The event shop (Events window): money-free, paid in earned Event Tickets.
+export const EVENT_SHOP = [
+  { id: 'luck', name: 'Luck Potion', desc: '2x luck for 10 minutes', icon: '\u{1F340}', price: 25, potion: 'luck', minutes: 10 },
+  { id: 'cash', name: 'Cash Potion', desc: '2x income for 10 minutes', icon: '\u{1F4B0}', price: 40, potion: 'cash', minutes: 10 },
+  { id: 'lucky', name: 'Lucky Throw', desc: '100x luck on your next throw', icon: '\u{2618}\u{FE0F}', price: 30, lucky: 1 },
+  { id: 'lure', name: 'Season Lure', desc: 'Your next throw brings out a season girl', icon: '\u{1F3A3}', price: 60, lure: 1 },
+]
+// Potions (event shop, Daily Reward, spin wheel): S.potions[kind] = epoch ms it lasts until.
+export const POTIONS = { luck: { mult: 2, name: 'Luck x2', icon: '\u{1F340}' }, cash: { mult: 2, name: 'Income x2', icon: '\u{1F4B0}' } }
+
+// PERFECT streak: every PERFECT in a row adds `step` luck (up to `max` steps); GOOD or WEAK
+// ends the streak, GREAT keeps it.
+export const STREAK = { step: 0.1, max: 10 }
+// Distance records: a new longest throw is announced; every `every` metres of record pays
+// `secs` of income (at least `min`).
+export const RECORDS = { every: 50, secs: 30, min: 100 }
+// Finishing an area's Index page also pays `secs` of income (at least `min`) and a title.
+export const INDEX_REWARD = { secs: 300, min: 1000, title: (area) => `${area.name} Master` }
+
+// Playtime gifts (Rewards window): claimable once each after this many minutes of play in one
+// session. kind: cash (secs of income, at least min), lucky (free Lucky Throws), potion.
+export const PLAYTIME_GIFTS = [
+  { min: 5, kind: 'cash', secs: 30, floor: 200, icon: '\u{1F4B5}' },
+  { min: 10, kind: 'lucky', n: 1, icon: '\u{2618}\u{FE0F}' },
+  { min: 15, kind: 'cash', secs: 60, floor: 500, icon: '\u{1F4B5}' },
+  { min: 30, kind: 'potion', potion: 'luck', minutes: 10, icon: '\u{1F340}' },
+  { min: 45, kind: 'cash', secs: 120, floor: 2000, icon: '\u{1F4B0}' },
+  { min: 60, kind: 'potion', potion: 'cash', minutes: 10, icon: '\u{1F4B0}' },
+]
+// Daily Reward (server clock; backend daily.ts): one day unlocks per UTC day, 7 in a cycle.
+export const DAILY = {
+  days: [
+    { kind: 'cash', secs: 60, floor: 500, icon: '\u{1F4B5}' },
+    { kind: 'lucky', n: 1, icon: '\u{2618}\u{FE0F}' },
+    { kind: 'cash', secs: 180, floor: 2000, icon: '\u{1F4B5}' },
+    { kind: 'potion', potion: 'luck', minutes: 15, icon: '\u{1F340}' },
+    { kind: 'potion', potion: 'cash', minutes: 15, icon: '\u{1F4B0}' },
+    { kind: 'lucky', n: 2, icon: '\u{2618}\u{FE0F}' },
+    { kind: 'cash', secs: 600, floor: 20000, tickets: 20, icon: '\u{1F381}' },
+  ],
+}
+// Spin wheel. Online the server owns the spins and rolls them (backend constants.ts SPIN_*: same
+// ids, weights and timing); offline the client does, for the session only.
+export const SPIN = {
+  everyMin: 15, // one free spin every this many minutes
+  cap: 5, // spins that can pile up
+  start: 1, // a new player's spins
+  wedges: [
+    { id: 'cash1', weight: 30, kind: 'cash', secs: 60, floor: 300, label: '1 min cash', color: '#6ee04a' },
+    { id: 'luck', weight: 22, kind: 'potion', potion: 'luck', minutes: 10, label: 'Luck x2', color: '#2fb8a0' },
+    { id: 'cash5', weight: 20, kind: 'cash', secs: 300, floor: 1500, label: '5 min cash', color: '#3fa6ff' },
+    { id: 'lucky', weight: 15, kind: 'lucky', n: 1, label: 'Lucky Throw', color: '#c97bff' },
+    { id: 'income', weight: 12, kind: 'potion', potion: 'cash', minutes: 10, label: 'Income x2', color: '#ffb020' },
+    { id: 'jackpot', weight: 1, kind: 'cash', secs: 1800, floor: 10000, label: 'JACKPOT', color: '#ff4f5e' },
+  ],
+}
 
 // The Fuse Machine (ui/hud.js window, main.js startFuse). Bring 3 of the same baddie and
 // size (from your pen and/or hotbar): you always get the next size up, and a lucky fuse skips
@@ -708,60 +852,61 @@ const FOOD_LUCK = (tier) => {
   return l < 10 ? Math.round(l * 100) / 100 : Math.round(l * 10) / 10
 }
 const FOOD_LIST = [
-  // id, name, rarity, price (money; tuned tier by tier in a progression sim), kind
+  // id, name, rarity, price (money; tuned tier by tier in a progression sim, then x2.5 to make
+  // room for the event / reward cash: still about 2 hours to the last area), kind
   ['carrot', 'Carrot', 0, 0, 'crunch'],
-  ['apple', 'Apple', 0, 4, 'crunch'],
-  ['banana', 'Banana', 0, 6, 'squish'],
-  ['orange', 'Orange', 0, 10, 'squish'],
-  ['strawberry', 'Strawberry', 1, 15, 'squish'],
-  ['pear', 'Pear', 1, 24, 'squish'],
-  ['lemon', 'Lemon', 1, 39, 'squish'],
-  ['cherry', 'Cherry', 1, 76, 'squish'],
-  ['grapes', 'Grapes', 2, 160, 'squish'],
-  ['corn', 'Corn', 2, 390, 'crunch'],
-  ['broccoli', 'Broccoli', 2, 1000, 'crunch'],
-  ['mushroom', 'Mushroom', 2, 1800, 'soft'],
-  ['eggplant', 'Eggplant', 3, 3300, 'soft'],
-  ['avocado', 'Avocado', 3, 6100, 'squish'],
-  ['watermelon', 'Watermelon Slice', 3, 14e3, 'squish'],
-  ['pineapple', 'Pineapple', 3, 27e3, 'crunch'],
-  ['toast', 'Toast', 4, 52e3, 'crunch'],
-  ['bread', 'Bread Loaf', 4, 180e3, 'soft'],
-  ['cheese', 'Cheese Wedge', 4, 360e3, 'soft'],
-  ['croissant', 'Croissant', 4, 1.1e6, 'soft'],
-  ['cookie', 'Cookie', 5, 2.3e6, 'crunch'],
-  ['pancakes', 'Pancakes', 5, 5e6, 'soft'],
-  ['donut', 'Donut', 5, 11e6, 'soft'],
-  ['chocolate', 'Chocolate Bar', 5, 36e6, 'crunch'],
-  ['lollipop', 'Lollipop', 6, 110e6, 'crunch'],
-  ['popsicle', 'Popsicle', 6, 360e6, 'jelly'],
-  ['cupcake', 'Cupcake', 6, 1e9, 'soft'],
-  ['icecream', 'Ice Cream', 6, 4.6e9, 'jelly'],
-  ['fries', 'Fries', 7, 5.3e9, 'crunch'],
-  ['hotdog', 'Hot Dog', 7, 6.1e9, 'meat'],
-  ['burger', 'Burger', 7, 7.1e9, 'meat'],
-  ['pizza', 'Pizza Slice', 7, 17e9, 'soft'],
-  ['taco', 'Taco', 7, 29e9, 'crunch'],
-  ['sushi', 'Sushi', 8, 49e9, 'meat'],
-  ['ramen', 'Ramen', 8, 84e9, 'jelly'],
-  ['drumstick', 'Drumstick', 8, 140e9, 'meat'],
-  ['steak', 'Steak', 9, 240e9, 'meat'],
-  ['cake', 'Cake Slice', 9, 410e9, 'soft'],
-  ['milkshake', 'Milkshake', 9, 700e9, 'jelly'],
-  ['goldenapple', 'Golden Apple', 9, 1.2e12, 'metal'],
-  ['dragonfruit', 'Dragon Fruit', 9, 2e12, 'squish'],
-  ['rainbowcake', 'Rainbow Cake', 9, 3.4e12, 'soft'],
-  ['dango', 'Dango', 9, 5.8e12, 'jelly'],
-  ['ghostpepper', 'Ghost Pepper', 9, 9.9e12, 'squish'],
-  ['lavacake', 'Lava Cake', 9, 17e12, 'jelly'],
-  ['hotwings', 'Hot Wings', 9, 29e12, 'meat'],
-  ['starfruit', 'Star Fruit', 10, 49e12, 'cosmic'],
-  ['mooncheese', 'Moon Cheese', 10, 83e12, 'cosmic'],
-  ['nebulajelly', 'Nebula Jelly', 10, 140e12, 'cosmic'],
+  ['apple', 'Apple', 0, 10, 'crunch'],
+  ['banana', 'Banana', 0, 15, 'squish'],
+  ['orange', 'Orange', 0, 25, 'squish'],
+  ['strawberry', 'Strawberry', 1, 38, 'squish'],
+  ['pear', 'Pear', 1, 60, 'squish'],
+  ['lemon', 'Lemon', 1, 98, 'squish'],
+  ['cherry', 'Cherry', 1, 190, 'squish'],
+  ['grapes', 'Grapes', 2, 400, 'squish'],
+  ['corn', 'Corn', 2, 980, 'crunch'],
+  ['broccoli', 'Broccoli', 2, 2500, 'crunch'],
+  ['mushroom', 'Mushroom', 2, 4500, 'soft'],
+  ['eggplant', 'Eggplant', 3, 8200, 'soft'],
+  ['avocado', 'Avocado', 3, 15e3, 'squish'],
+  ['watermelon', 'Watermelon Slice', 3, 35e3, 'squish'],
+  ['pineapple', 'Pineapple', 3, 68e3, 'crunch'],
+  ['toast', 'Toast', 4, 130e3, 'crunch'],
+  ['bread', 'Bread Loaf', 4, 450e3, 'soft'],
+  ['cheese', 'Cheese Wedge', 4, 900e3, 'soft'],
+  ['croissant', 'Croissant', 4, 2.8e6, 'soft'],
+  ['cookie', 'Cookie', 5, 5.8e6, 'crunch'],
+  ['pancakes', 'Pancakes', 5, 12e6, 'soft'],
+  ['donut', 'Donut', 5, 28e6, 'soft'],
+  ['chocolate', 'Chocolate Bar', 5, 90e6, 'crunch'],
+  ['lollipop', 'Lollipop', 6, 280e6, 'crunch'],
+  ['popsicle', 'Popsicle', 6, 900e6, 'jelly'],
+  ['cupcake', 'Cupcake', 6, 2.5e9, 'soft'],
+  ['icecream', 'Ice Cream', 6, 12e9, 'jelly'],
+  ['fries', 'Fries', 7, 13e9, 'crunch'],
+  ['hotdog', 'Hot Dog', 7, 15e9, 'meat'],
+  ['burger', 'Burger', 7, 18e9, 'meat'],
+  ['pizza', 'Pizza Slice', 7, 42e9, 'soft'],
+  ['taco', 'Taco', 7, 72e9, 'crunch'],
+  ['sushi', 'Sushi', 8, 120e9, 'meat'],
+  ['ramen', 'Ramen', 8, 210e9, 'jelly'],
+  ['drumstick', 'Drumstick', 8, 350e9, 'meat'],
+  ['steak', 'Steak', 9, 600e9, 'meat'],
+  ['cake', 'Cake Slice', 9, 1e12, 'soft'],
+  ['milkshake', 'Milkshake', 9, 1.8e12, 'jelly'],
+  ['goldenapple', 'Golden Apple', 9, 3e12, 'metal'],
+  ['dragonfruit', 'Dragon Fruit', 9, 5e12, 'squish'],
+  ['rainbowcake', 'Rainbow Cake', 9, 8.5e12, 'soft'],
+  ['dango', 'Dango', 9, 14e12, 'jelly'],
+  ['ghostpepper', 'Ghost Pepper', 9, 25e12, 'squish'],
+  ['lavacake', 'Lava Cake', 9, 42e12, 'jelly'],
+  ['hotwings', 'Hot Wings', 9, 72e12, 'meat'],
+  ['starfruit', 'Star Fruit', 10, 120e12, 'cosmic'],
+  ['mooncheese', 'Moon Cheese', 10, 210e12, 'cosmic'],
+  ['nebulajelly', 'Nebula Jelly', 10, 350e12, 'cosmic'],
 ]
 export const FOODS = [
   // Special: Robux in the reference, money here. Distance of tier 14, luck of tier 16, priced as tier 17.
-  { id: 'galaxydonut', name: 'Galaxy Donut', rarity: 11, tier: 0, special: true, price: 52e3, dist: FOOD_DIST(14), luck: FOOD_LUCK(16), kind: 'cosmic' },
+  { id: 'galaxydonut', name: 'Galaxy Donut', rarity: 11, tier: 0, special: true, price: 130e3, dist: FOOD_DIST(14), luck: FOOD_LUCK(16), kind: 'cosmic' },
   ...FOOD_LIST.map(([id, name, rarity, price, kind], i) => ({ id, name, rarity, tier: i + 1, price, dist: FOOD_DIST(i + 1), luck: FOOD_LUCK(i + 1), kind })),
 ]
 export const STARTER_FOOD = 'carrot'
@@ -903,19 +1048,55 @@ export const UPGRADES = [
   { id: 'speed', name: 'Speedy Shoes', desc: '+10% walk speed', max: 5, cost: (l) => Math.round(400 * Math.pow(3, l)) },
 ]
 
-// The objective banner (top centre). The first unfinished one shows; each pays a reward.
+// The objective banner (top centre). The first unfinished one shows; each pays a reward: `reward`
+// money, or `secs` seconds of income when that is more. Quests with a `goal` complete themselves
+// once it is met (state.js checkQuests); the others are completed by the action they name.
+// goal types: area (reach area n, 1-based), catches, food (own food tier n), bench (bench tier n,
+// 0-based), level (training level), size (own one this size), variant (catch one this variant),
+// rarity (catch one this rarity), dist (throw n metres), streak (PERFECT streak), index (pages done).
 export const QUESTS = [
   { id: 'catch1', text: 'Throw food at a baddie in the lane', reward: 50 },
   { id: 'train1', text: 'Do pull-ups at the Training Bench', reward: 100 },
   { id: 'bench1', text: 'Upgrade your Training Bench on its pad', reward: 150 },
   { id: 'food1', text: 'Buy new food', reward: 150 },
+  { id: 'area2', text: 'Throw into Area 2: Harvest Farm', reward: 200, goal: { type: 'area', n: 2 } },
   { id: 'catch5', text: 'Catch 5 baddies', reward: 400 },
   { id: 'pen1', text: 'Upgrade your pen', reward: 800 },
+  { id: 'level10', text: 'Reach Training Level 10', reward: 300, secs: 20, goal: { type: 'level', n: 10 } },
+  { id: 'area3', text: 'Throw into Area 3: Willow Lake', reward: 500, secs: 30, goal: { type: 'area', n: 3 } },
   { id: 'fuse1', text: 'Fuse 3 baddies in the Fuse Machine', reward: 2500 },
   { id: 'food2', text: 'Buy new food', reward: 6000 },
+  { id: 'dist50', text: 'Throw 50 metres', reward: 1000, secs: 30, goal: { type: 'dist', n: 50 } },
   { id: 'rare1', text: 'Catch a Rare baddie', reward: 9000 },
+  { id: 'area4', text: 'Throw into Area 4: Desert Canyon', reward: 2000, secs: 40, goal: { type: 'area', n: 4 } },
+  { id: 'streak3', text: 'Throw 3 PERFECTs in a row', reward: 2000, secs: 30, goal: { type: 'streak', n: 3 } },
   { id: 'food3', text: 'Buy new food', reward: 25000 },
+  { id: 'catch25', text: 'Catch 25 baddies', reward: 5000, secs: 40, goal: { type: 'catches', n: 25 } },
+  { id: 'bench3', text: 'Upgrade to the Neon Arena bench', reward: 5000, secs: 40, goal: { type: 'bench', n: 3 } },
   { id: 'epic1', text: 'Catch an Epic baddie', reward: 60000 },
+  { id: 'area5', text: 'Throw into Area 5: Frost Peaks', reward: 10000, secs: 50, goal: { type: 'area', n: 5 } },
+  { id: 'gold1', text: 'Catch a GOLD baddie', reward: 10000, secs: 50, goal: { type: 'variant', n: 1 } },
+  { id: 'index1', text: 'Complete a page of the Index', reward: 10000, secs: 50, goal: { type: 'index', n: 1 } },
+  { id: 'area6', text: 'Throw into Area 6: Autumn Grove', reward: 20000, secs: 60, goal: { type: 'area', n: 6 } },
+  { id: 'huge1', text: 'Fuse a HUGE baddie', reward: 20000, secs: 60, goal: { type: 'size', n: 2 } },
+  { id: 'dist150', text: 'Throw 150 metres', reward: 20000, secs: 60, goal: { type: 'dist', n: 150 } },
+  { id: 'area7', text: 'Throw into Area 7: Crystal Falls', reward: 50000, secs: 70, goal: { type: 'area', n: 7 } },
+  { id: 'legend1', text: 'Catch a Legendary baddie', reward: 50000, secs: 70, goal: { type: 'rarity', n: 4 } },
+  { id: 'catch100', text: 'Catch 100 baddies', reward: 50000, secs: 70, goal: { type: 'catches', n: 100 } },
+  { id: 'area8', text: 'Throw into Area 8: Sunset Beach', reward: 100000, secs: 80, goal: { type: 'area', n: 8 } },
+  { id: 'streak5', text: 'Throw 5 PERFECTs in a row', reward: 100000, secs: 60, goal: { type: 'streak', n: 5 } },
+  { id: 'food20', text: 'Buy the Croissant', reward: 100000, secs: 80, goal: { type: 'food', n: 20 } },
+  { id: 'area9', text: 'Throw into Area 9: Coral Reef', reward: 200000, secs: 90, goal: { type: 'area', n: 9 } },
+  { id: 'diamond1', text: 'Catch a DIAMOND baddie', reward: 200000, secs: 90, goal: { type: 'variant', n: 2 } },
+  { id: 'area10', text: 'Throw into Area 10: Cloud Heaven', reward: 500000, secs: 100, goal: { type: 'area', n: 10 } },
+  { id: 'giant1', text: 'Fuse a GIANT baddie', reward: 500000, secs: 100, goal: { type: 'size', n: 3 } },
+  { id: 'area11', text: 'Throw into Area 11: Lava Inferno', reward: 1e6, secs: 110, goal: { type: 'area', n: 11 } },
+  { id: 'dist300', text: 'Throw 300 metres', reward: 1e6, secs: 110, goal: { type: 'dist', n: 300 } },
+  { id: 'area12', text: 'Throw into Area 12: Cosmic Rift', reward: 2e6, secs: 180, goal: { type: 'area', n: 12 } },
+  { id: 'mythic1', text: 'Catch a Mythic baddie', reward: 2e6, secs: 120, goal: { type: 'rarity', n: 5 } },
+  { id: 'titan1', text: 'Fuse a TITAN baddie', reward: 5e6, secs: 300, goal: { type: 'size', n: 4 } },
+  { id: 'rainbow1', text: 'Catch a RAINBOW baddie', reward: 5e6, secs: 300, goal: { type: 'variant', n: 3 } },
+  { id: 'index6', text: 'Complete 6 pages of the Index', reward: 1e7, secs: 300, goal: { type: 'index', n: 6 } },
 ]
 
 // Neighbour plots (offline stand-ins for other players). Names are made up.

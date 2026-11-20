@@ -11,11 +11,12 @@
 //   meet    - first person through a baddie's eyes: it rises from behind the nearest bush,
 //             spots the food, walks in (head bob, sway, footsteps) and eats it bite by bite
 //   reveal  - close-up with a rotating sunburst; its name types out, then the rarity card
-//   catch   - hearts, a beam, it rockets off to your pen (or shrugs off if the pen is full)
+//   catch   - hearts, a beam, it rockets off to your pen (or shrugs off if the hotbar is full)
 //   return  - a wipe back to the aim shot for the next throw
 // Exit (or Esc / Q) leaves from the aim phase. Auto plays the loop by itself.
 import { AdditiveBlending, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, CircleGeometry, Color, DoubleSide, DynamicDrawUsage, Group, InstancedMesh, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, Sprite, SpriteMaterial, SRGBColorSpace, Vector3 } from 'three'
-import { ECONOMY, HUB, RARITIES, THROW, THROW_MODE as TM } from '../config.js'
+import { EVENTS, HUB, RARITIES, SEASON, STREAK, THROW, THROW_MODE as TM, VARIANTS } from '../config.js'
+import * as events from './events.js'
 import { laneCover } from '../hub/world.js'
 import { Baddie } from './baddieModel.js'
 import { FOOD_BY_ID, foodColors as paletteOf, foodMesh, foodRarity } from './foods.js'
@@ -318,6 +319,9 @@ export function createThrower(scene, { fx, sfx, player, camera, director, ui, on
   let peak = 3
   let slowed = false
   let luckBase = 1
+  let streak = 0 // PERFECTs in a row (STREAK)
+  const streakMult = () => 1 + STREAK.step * Math.min(STREAK.max, streak)
+  let throwDist = 0 // metres from the throw spot to where the food lands
   let luckNow = 1
   let luckShown = 1
   let zoneIdx = -1
@@ -444,6 +448,11 @@ export function createThrower(scene, { fx, sfx, player, camera, director, ui, on
     ui.grade(grade.name, grade.color)
     sfx.lockIn(gradeIdx)
     director.kick(-4)
+    // PERFECT streak: PERFECT adds one, GREAT keeps it, GOOD / WEAK ends it.
+    if (gradeIdx === 0) streak++
+    else if (gradeIdx >= 2) streak = 0
+    state.noteStreak(streak)
+    ui.setStreak(streak, streakMult())
     if (gradeIdx === 0) {
       fx.sparkle(hand(tmpA), '#bfff6a', 26, { speed: 5 })
       fx.stars(tmpA, '#ffe14a', 8, 4)
@@ -464,8 +473,9 @@ export function createThrower(scene, { fx, sfx, player, camera, director, ui, on
     const f = THROW.flightTime
     flightDur = f[0] + (f[1] - f[0]) * Math.min(1, dist / THROW.maxRange)
     peak = 2.5 + Math.min(18, dist * 0.09)
-    luckBase = state.luck() * grade.luck * (luckyUsed ? TM.lucky.mult : 1)
+    luckBase = state.luck() * grade.luck * streakMult() * (luckyUsed ? TM.lucky.mult : 1)
     luckNow = luckShown = luckBase
+    throwDist = Math.abs(spot.z - z)
     zoneIdx = -1
     slowed = false
     settled = false
@@ -584,15 +594,45 @@ export function createThrower(scene, { fx, sfx, player, camera, director, ui, on
     }
     return best
   }
+  // Who comes out for the food: a season girl (a Season Lure guarantees one, else 1 in
+  // SEASON.chance), or a girl of the zone it landed in (the featured area adds luck). Then a
+  // variant roll: rarest first, 1 in VARIANTS[v].chance, featured area x EVENTS.featured.variant,
+  // luck helps a little.
+  function rollMeet(zone) {
+    const featured = events.isFeatured(zone.index)
+    const L = luckNow * (featured ? EVENTS.featured.luck : 1)
+    let def
+    const lure = (state.S.lures | 0) > 0
+    if (lure || Math.random() * SEASON.chance < 1) {
+      if (lure) state.S.lures--
+      def = state.rollSeason(L)
+    }
+    def ||= state.rollBaddie(zone.index, L)
+    const boost = (featured ? EVENTS.featured.variant : 1) * (1 + Math.log10(Math.max(1, L)) * 0.5)
+    let v = 0
+    for (let i = VARIANTS.length - 1; i > 0; i--) {
+      if (Math.random() * VARIANTS[i].chance < boost) {
+        v = i
+        break
+      }
+    }
+    return { def, v }
+  }
   function startMeet() {
     const fp = held.position
     const zone = zoneAt(fp.z) ?? HUB.zones[0]
-    const def = state.rollBaddie(zone.index, luckNow)
+    const { def, v } = rollMeet(zone)
+    const area = zone.index
+    // Records, milestone cash and Event Tickets for this throw.
+    const rec = state.recordThrow(throwDist, area)
+    if (rec.record) ui.zone(`NEW RECORD! ${Math.round(throwDist)} m`, '#ffe14a')
+    if (rec.paid) toast(`Distance milestone: +$${Math.round(rec.paid).toLocaleString()}!`, 'good')
+    state.addTickets(SEASON.ticketsPerThrow + (def.season ? SEASON.ticketsPerGirl : 0))
     const cover = coverNear(fp)
     const side = cover ? cover.side : Math.random() < 0.5 ? -1 : 1
     const home = cover ? new Vector3(cover.x - cover.side * 1.1, FY, cover.z) : new Vector3(side * (L.halfWidth - 1.6), FY, Math.max(L.end + 2, fp.z - 9))
     if (cover) cover.busy = true
-    const b = new Baddie(def.id, 0, { showLabel: false })
+    const b = new Baddie(def.id, 0, { showLabel: false, variant: v })
     b.group.position.copy(home)
     b.group.rotation.y = Math.atan2(fp.x - home.x, fp.z - home.z)
     scene.add(b.group)
@@ -600,8 +640,8 @@ export function createThrower(scene, { fx, sfx, player, camera, director, ui, on
     // lens; its arms and body still show when it looks down or reaches for the food).
     b.head.visible = false
     const isNew = !state.S.discovered[def.id]
-    const full = state.penRoom() <= 0 || state.S.hotbar.length >= ECONOMY.hotbarSlots
-    bad = { b, def, cover, home, sub: 'peek', t: 0, isNew, full, noticed: false, speed: 0, step: 0, bites: 0, side: -Math.sign(home.x || 1) }
+    const full = state.hotbarRoom() <= 0
+    bad = { b, def, v, area, cover, home, sub: 'peek', t: 0, isNew, full, noticed: false, speed: 0, step: 0, bites: 0, side: -Math.sign(home.x || 1) }
     povShot(0, true)
     director.cut()
     ui.flash('#ffffff', 0.7, 0.35)
@@ -673,7 +713,12 @@ export function createThrower(scene, { fx, sfx, player, camera, director, ui, on
     const r = bad.def.rarity
     const b = bad.b
     const bp = b.group.position
-    ui.card({ rarity: r, name: bad.def.name, income: bad.def.income, isNew: bad.isNew, full: bad.full })
+    const inc = state.baddieIncome({ id: bad.def.id, size: 0, v: bad.v, a: bad.area })
+    ui.card({ rarity: r, name: bad.def.name, income: inc, isNew: bad.isNew, full: bad.full, variant: bad.v, season: bad.def.season ? events.season().season.name : '' })
+    if (bad.v) {
+      ui.flash(VARIANTS[bad.v].glow, 0.6, 0.6)
+      fx.sparkle(tmpA.set(bp.x, FY + b.height * 0.6, bp.z), VARIANTS[bad.v].color, 60, { speed: 8, up: 3 })
+    }
     sfx.reveal(r)
     if (bad.isNew) setTimeout(() => sfx.newStamp(), 450)
     if (bad.full) setTimeout(() => sfx.deny(), 450)
@@ -697,7 +742,7 @@ export function createThrower(scene, { fx, sfx, player, camera, director, ui, on
     ui.showContinue(false)
     ui.letterbox(true)
     setPhase('catch')
-    const entry = bad.full ? null : state.catchToHotbar(def, { catchOdds: def.odds })
+    const entry = bad.full ? null : state.catchToHotbar(def, { catchOdds: def.odds, v: bad.v, a: bad.area })
     if (bad.cover) bad.cover.busy = false
     if (entry) {
       state.recordCatch(def)
@@ -710,8 +755,8 @@ export function createThrower(scene, { fx, sfx, player, camera, director, ui, on
       bad.sub = 'liftoff'
       bad.entry = entry
     } else {
-      fx.text('Pen full!', new Vector3(bp.x, FY + b.height + 1, bp.z), '#ff6a6a', { height: 1, life: 1.6 })
-      toast('No room! Place the baddies in your hotbar, upgrade your pen or sell one.', 'warn')
+      fx.text('Hotbar full!', new Vector3(bp.x, FY + b.height + 1, bp.z), '#ff6a6a', { height: 1, life: 1.6 })
+      toast('Hotbar full! Place baddies in your pen, sell some or fuse them to free a slot.', 'warn')
       b.mode = 'idle'
       bad.sub = 'shrug'
     }

@@ -1,5 +1,5 @@
 import { ACESFilmicToneMapping, CircleGeometry, Clock, DoubleSide, Group, Mesh, MeshBasicMaterial, RingGeometry, PCFSoftShadowMap, PerspectiveCamera, Quaternion, Scene, SRGBColorSpace, Vector3, WebGLRenderer } from 'three'
-import { BADDIES, BOARD_BOTS, CAMERA, LEADERBOARDS, REMOTE, ECONOMY, FUSE, graphicsPreset, HUB, PENS, PHYSICS, POI, RARITIES, RENDER, SIZES, SPAWN, AUDIO, THROW_MODE, placeUnit } from './config.js'
+import { BADDIES, BOARD_BOTS, CAMERA, LEADERBOARDS, REMOTE, ECONOMY, FUSE, graphicsPreset, HUB, PENS, PHYSICS, POI, RARITIES, RENDER, SIZES, SPAWN, AUDIO, THROW_MODE, VARIANTS, placeUnit } from './config.js'
 import * as THREE from 'three'
 import * as bloxity from './bloxity.js'
 import { createRemotePlayers } from './remote.js'
@@ -21,8 +21,11 @@ import { applyProportions, attachEquippedAccessories } from './avatar/loader.js'
 import { disposeAnimator, makeAnimator } from './avatar/animator.js'
 import { buildHub } from './hub/world.js'
 import { buildBoards, buildChest, buildFoodShop, buildFriendWall, buildFuse, buildLaneDeco, buildSell, buildThrowBand } from './hub/props.js'
-import { buildPens } from './game/pens.js'
+import { buildPens, setIncomeFn } from './game/pens.js'
 import { createThrower } from './game/throw.js'
+import { createBoss } from './game/boss.js'
+import { createRewards } from './ui/rewards.js'
+import { createEventsUi } from './ui/eventsUi.js'
 import { Baddie, BY_ID } from './game/baddieModel.js'
 import { fmt, clock, money } from './game/format.js'
 import * as state from './game/state.js'
@@ -141,6 +144,7 @@ const myIndex = online ? session.base : PENS.playerIndex
 placeUnit(myIndex)
 buildFoodShop(world)
 const trainStation = buildTrainingStation(world)
+setIncomeFn((e) => state.baddieIncome(e))
 const pens = buildPens(world, { mine: myIndex, online })
 const myPen = pens[myIndex]
 const localVec = new Vector3()
@@ -276,7 +280,7 @@ function refreshIncome() {
 }
 hud.setMoney(state.S.money, 0, { popup: false })
 hud.setStrength(state.totalStrength())
-hud.setQuest(state.currentQuest())
+hud.setQuest(state.questView())
 refreshPortrait()
 refreshSign()
 refreshIncome()
@@ -367,7 +371,7 @@ function setCarry(idx) {
   carried = null
   const item = idx >= 0 ? state.S.hotbar[idx] : null
   if (item) {
-    const b = new Baddie(item.id, item.size)
+    const b = new Baddie(item.id, item.size, { variant: item.v | 0, income: state.baddieIncome(item) })
     b.mode = 'fly'
     world.add(b.group)
     carried = { b, idx }
@@ -408,7 +412,7 @@ function placeCarried() {
   fx.sparkle(at.clone().setY(1.2), RARITIES[def.rarity].glow, 24, { speed: 4 })
   fx.beam(at.clone().setY(PENS.floorHeight), RARITIES[def.rarity].glow, { radius: 1.1, height: 9, life: 1 })
   sfx.arrive()
-  hud.toast(`${def.name} (${RARITIES[def.rarity].name}) joined your pen! +$${fmt(def.income)}/s`, def.rarity >= 3 ? 'rare' : 'good')
+  hud.toast(`${entry.v ? VARIANTS[entry.v].name + ' ' : ''}${def.name} (${RARITIES[def.rarity].name}) joined your pen! +$${fmt(state.baddieIncome(entry))}/s`, def.rarity >= 3 || entry.v ? 'rare' : 'good')
 }
 function updateCarry(dt, t) {
   if (!carried) return
@@ -437,6 +441,7 @@ function updateCarry(dt, t) {
 // flies to your pen and drops in through a beam of light.
 const director = createDirector()
 let thrower = null
+let boss = null // game/boss.js, created with the other live-event modules below
 const throwUi = createThrowUi({
   onTap: () => thrower?.tap(),
   onExit: () => thrower?.exit(),
@@ -450,7 +455,10 @@ thrower = createThrower(world, {
   camera,
   director,
   ui: throwUi,
-  onThrow: (e) => net.send('throw', e),
+  onThrow: (e) => {
+    net.send('throw', e)
+    boss?.noteThrow()
+  },
   toast: (t, k) => hud.toast(t, k),
   income: () => state.income(),
   canEnter() {
@@ -483,7 +491,7 @@ thrower = createThrower(world, {
       const p = rec.b.group.position
       fx.beam(new Vector3(p.x, 0, p.z), RARITIES[def.rarity].glow, { radius: 1.4, height: 16, life: 1.4 })
       sfx.arrive()
-      hud.toast(`${def.name} (${RARITIES[def.rarity].name}) joined your pen! +$${fmt(def.income)}/s`, def.rarity >= 3 ? 'rare' : 'good')
+      hud.toast(`${entry.v ? VARIANTS[entry.v].name + ' ' : ''}${def.name} (${RARITIES[def.rarity].name}) joined your pen! +$${fmt(state.baddieIncome(entry))}/s`, def.rarity >= 3 || entry.v ? 'rare' : 'good')
     },
   },
 })
@@ -585,7 +593,7 @@ function fuseAll() {
     for (let guard = 0; guard < 200; guard++) {
       const g = state.fusable().sort((a, b) => state.baddieIncome(b[0].b) - state.baddieIncome(a[0].b))[0]
       if (!g) break
-      const r = state.fuseEntries(state.pickTriple(g[0].b.id, g[0].b.size))
+      const r = state.fuseEntries(state.pickTriple(g[0].b))
       if (!r) break
       made.push(r)
     }
@@ -758,10 +766,10 @@ function sendPresence(dt, t, arm) {
   penSigT += dt
   if (penSigT >= 0.5) {
     penSigT = 0
-    const sig = state.S.baddies.map((b) => `${b.id}:${b.size}`).join(',')
+    const sig = state.S.baddies.map((b) => `${b.id}:${b.size}:${b.v | 0}`).join(',')
     if (sig !== penSig) {
       penSig = sig
-      net.send('pen', { list: state.S.baddies.map((b) => ({ id: b.id, size: b.size })) })
+      net.send('pen', { list: state.S.baddies.map((b) => ({ id: b.id, size: b.size, v: b.v | 0 })) })
     }
   }
 }
@@ -832,6 +840,19 @@ bloxity.onEmote(async (id) => {
 })
 // Rewarded ads (Free Gift button, boost chip) and the gameplay / panel banners.
 const ads = createAds({ hud, sfx, fx, playerChest, onChange: refreshIncome, isBusy: () => thrower.active || trainer.active, isPaused: () => adPaused })
+// Live events and rewards: the Hungry Giant at the lane end, the Rewards window (playtime gifts,
+// Daily Reward, spin wheel) and the Events window + HUD event pills.
+const celebrate = () => {
+  fx.confetti(playerChest().clone().setY(player.renderPosition.y + 2.5), 50)
+  fx.stars(playerChest(), '#ffd93b', 12)
+}
+boss = createBoss(world, { fx, sfx, hud, celebrate })
+const rewards = createRewards({ hud, sfx, celebrate })
+const eventsUi = createEventsUi({ hud, sfx, boss, celebrate })
+state.on('index-reward', ({ area, title, cash }) => {
+  hud.pop({ line1: `${AREAS[area].name} page complete!`, line2: `"${title}" +$${fmt(cash)}`, color: '#ffd93b' })
+  celebrate()
+})
 // Chat bubbles over the speaker (yours here, the others' in remote.js).
 let myBubble = null
 bloxity.onChat((m) => {
@@ -1059,10 +1080,12 @@ function questTarget() {
   const q = state.currentQuest()
   if (!q) return null
   if (q.id.startsWith('food')) return POI.foodShop
-  if (q.id === 'bench1') return trainer.active ? null : myPen.padSpot
-  if (q.id === 'train1') return trainer.active ? null : TRAINING.spot
+  const g = q.goal?.type
+  if (q.id === 'bench1' || g === 'bench') return trainer.active ? null : myPen.padSpot
+  if (q.id === 'train1' || g === 'level') return trainer.active ? null : TRAINING.spot
   if (q.id === 'pen1') return myPen.signSpot
-  if (q.id === 'fuse1') return state.fusable().length ? { x: POI.fuse.x, z: POI.fuse.z + 0.8 } : laneMouth
+  if (q.id === 'fuse1' || g === 'size') return state.fusable().length ? { x: POI.fuse.x, z: POI.fuse.z + 0.8 } : laneMouth
+  if (g === 'food') return POI.foodShop
   if (thrower.active || thrower.onBand(player.renderPosition)) return null // already throwing
   return laneMouth
 }
@@ -1072,6 +1095,7 @@ const clock3 = new Clock()
 let shownLoading = true
 let readySince = 0
 let incomeT = 0
+let liveT = 0 // quest-goal checks, twice a second
 let night = 0
 const q = new Quaternion()
 
@@ -1139,7 +1163,15 @@ renderer.setAnimationLoop(() => {
   hub.update(dt)
   fx.update(wdt)
 
-  hud.setQuest(state.currentQuest())
+  hud.setQuest(state.questView())
+  liveT += dt
+  if (liveT >= 0.5) {
+    liveT = 0
+    state.checkQuests()
+  }
+  boss.update(dt)
+  rewards.update(dt)
+  eventsUi.update(dt)
   const touchUi = document.body.classList.contains('touch-ui')
   hud.setHint(
     carried && !hud.isOpen()
