@@ -3,7 +3,7 @@
 // Pen upgrade, Shop upgrades, Index, My Baddies, Settings, rewards). Windows are
 // rebuilt from state each time they open or the state changes while open.
 import './hud.css'
-import { BADDIES, ECONOMY, FUSE, RARITIES, SIZES, UPGRADES } from '../config.js'
+import { BADDIES, ECONOMY, FUSE, RARITIES, SIZES, UPGRADES, VARIANTS } from '../config.js'
 import { BY_ID } from '../game/baddieModel.js'
 import { fmt, money } from '../game/format.js'
 import * as state from '../game/state.js'
@@ -23,8 +23,10 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const sizeName = (s) => SIZES[s].name
 // "Big Sakuro": size word in title case, then the name.
 const sizeWord = (s) => (SIZES[s].name ? SIZES[s].name[0] + SIZES[s].name.slice(1).toLowerCase() + ' ' : '')
-const fullName = (b) => `${sizeWord(b.size)}${BY_ID[b.id].name}`
-const isPricey = (b) => BY_ID[b.id].rarity >= 3 || b.size > 0 // selling these asks twice
+// "Gold ": the variant word in title case (VARIANTS).
+const variantWord = (v) => (VARIANTS[v | 0]?.name ? VARIANTS[v | 0].name[0] + VARIANTS[v | 0].name.slice(1).toLowerCase() + ' ' : '')
+const fullName = (b) => `${variantWord(b.v)}${sizeWord(b.size)}${BY_ID[b.id].name}`
+const isPricey = (b) => BY_ID[b.id].rarity >= 3 || b.size > 0 || (b.v | 0) > 0 // selling these asks twice
 
 export function createHud({ sfx, actions, onReservedAreas }) {
   const root = el('div', '')
@@ -342,7 +344,8 @@ export function createHud({ sfx, actions, onReservedAreas }) {
     const c = el(onClick ? 'button' : 'div', `card ${dim ? 'dim' : ''}`)
     c.style.setProperty('--rc', RARITIES[def.rarity].color)
     const sz = sizeName(b.size)
-    c.innerHTML = `${sz ? `<span class="tag ${b.size === 2 ? 'huge' : ''}">${sz}</span>` : ''}${count ? `<span class="count">x${count}</span>` : ''}<img src="${baddiePortrait(def.id)}" alt=""><b>${esc(def.name)}</b><small style="color:${RARITIES[def.rarity].color}">${RARITIES[def.rarity].name}</small><small class="inc">$${fmt(state.baddieIncome(b))}/s</small>${price != null ? `<span class="price">${price}</span>` : ''}`
+    const V = VARIANTS[b.v | 0]
+    c.innerHTML = `${sz ? `<span class="tag ${b.size >= 2 ? 'huge' : ''}">${sz}</span>` : ''}${V?.name ? `<span class="vtag" style="--vc:${V.color}">${V.name}</span>` : ''}${count ? `<span class="count">x${count}</span>` : ''}<img src="${baddiePortrait(def.id, 0, false, b.v)}" alt=""><b>${esc(def.name)}</b><small style="color:${RARITIES[def.rarity].color}">${RARITIES[def.rarity].name}</small><small class="inc">$${fmt(state.baddieIncome(b))}/s</small>${price != null ? `<span class="price">${price}</span>` : ''}`
     if (onClick) c.addEventListener('click', (e) => onClick(c, e))
     return c
   }
@@ -443,12 +446,12 @@ export function createHud({ sfx, actions, onReservedAreas }) {
   function fuseCandidates() {
     const used = new Set(fuseSel.filter(Boolean).map((e) => e.b))
     const first = fuseSel.find(Boolean)
-    return state.owned().filter((e) => !used.has(e.b) && e.b.size < maxSize && (!first || (e.b.id === first.b.id && e.b.size === first.b.size)))
+    return state.owned().filter((e) => !used.has(e.b) && e.b.size < maxSize && (!first || state.fuseKey(e.b) === state.fuseKey(first.b)))
   }
   function groupsOf(list) {
     const m = new Map()
     for (const e of list) {
-      const k = `${e.b.id}|${e.b.size}`
+      const k = state.fuseKey(e.b)
       if (!m.has(k)) m.set(k, [])
       m.get(k).push(e)
     }
@@ -517,7 +520,7 @@ export function createHud({ sfx, actions, onReservedAreas }) {
     if (busy) res.innerHTML = '<div class="fw-spin"></div><b class="outline">Fusing...</b>'
     else if (full) {
       const b = fuseSel[0].b
-      const next = { id: b.id, size: b.size + 1 }
+      const next = { id: b.id, size: b.size + 1, v: b.v, a: b.a }
       const def = BY_ID[b.id]
       res.style.setProperty('--rc', RARITIES[def.rarity].color)
       const lucky = b.size + 2 <= maxSize ? `Lucky: ${SIZES[b.size + 2].name}!` : 'Lucky: bonus cash!'
@@ -765,6 +768,12 @@ export function createHud({ sfx, actions, onReservedAreas }) {
     setFriendBoost(pct) {
       friend.querySelector('b').textContent = `FRIEND BOOST +${pct}%`
     },
+    // Other modules' windows (ui/rewards.js, ui/eventsUi.js): { title, accent, render, cls? }.
+    addWindow(id, def) {
+      WINDOWS[id] = def
+    },
+    // The left column of tiles (Shop, Index, ...), for other modules' buttons.
+    tiles: left,
     frame,
   }
 }

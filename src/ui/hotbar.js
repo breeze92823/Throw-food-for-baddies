@@ -2,10 +2,9 @@
 // press its number) to carry that baddie; click it again to put it away. A fresh catch flies
 // in as a portrait card from the middle of the screen. main.js does the carrying and placing.
 import './hotbar.css'
-import { BADDIES, ECONOMY, RARITIES, SIZES } from '../config.js'
+import { ECONOMY, RARITIES, SIZES, VARIANTS } from '../config.js'
+import { BY_ID } from '../game/baddieModel.js'
 import { baddiePortrait } from './snapshot.js'
-
-const BY_ID = Object.fromEntries(BADDIES.map((b) => [b.id, b]))
 
 export function createHotbar({ getItems, onSelect }) {
   const bar = document.createElement('div')
@@ -25,9 +24,10 @@ export function createHotbar({ getItems, onSelect }) {
       b.type = 'button'
       b.className = `hb-slot${i === selected ? ' on' : ''}`
       b.style.setProperty('--rc', r.color)
-      const size = SIZES[it.size]?.name ?? ''
+      const size = [VARIANTS[it.v | 0]?.name, SIZES[it.size]?.name].filter(Boolean).join(' ')
       b.title = `${size ? `${size} ` : ''}${def.name} (${r.name})`
-      b.innerHTML = `<i class="num">${i + 1}</i><img alt="" src="${baddiePortrait(it.id)}"><span class="nm">${def.name}</span>${size ? `<span class="sz">${size}</span>` : ''}`
+      if (it.v) b.style.setProperty('--vc', VARIANTS[it.v].color)
+      b.innerHTML = `<i class="num">${i + 1}</i><img alt="" src="${baddiePortrait(it.id, 0, false, it.v)}"><span class="nm">${def.name}</span>${size ? `<span class="sz">${size}</span>` : ''}`
       b.addEventListener('pointerdown', (e) => e.stopPropagation())
       b.addEventListener('click', () => select(i === selected ? -1 : i))
       bar.appendChild(b)

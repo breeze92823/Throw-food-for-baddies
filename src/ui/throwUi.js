@@ -5,7 +5,7 @@
 // Everything is DOM + CSS in relative units; one full-screen tap layer takes the "tap"
 // (mouse, touch or pen) so it works the same on phones.
 import './throwUi.css'
-import { RARITIES } from '../config.js'
+import { RARITIES, VARIANTS } from '../config.js'
 import { fmt } from '../game/format.js'
 
 function el(tag, cls, html = '') {
@@ -41,8 +41,10 @@ export function createThrowUi({ onTap, onExit, onAuto, onLucky }) {
   const grade = el('div', 'tu-grade outline')
   const luck = el('div', 'tu-luck', '<div class="cloud"><b class="outline">1.00X</b><small class="outline">LUCK</small></div><div class="zone outline"></div>')
   const cont = el('div', 'tu-continue outline')
-  const reveal = el('div', 'tu-reveal', '<div class="card"><div class="tag outline"></div><div class="name outline"></div><div class="income"><span class="outline"></span></div><div class="new outline">NEW!</div><div class="full outline">PEN FULL!</div><i class="shine"></i></div>')
-  root.append(tap, vignette, speed, bars, luck, meter, tapText, grade, side, lucky, reveal, cont, flash, wipe)
+  const reveal = el('div', 'tu-reveal', '<div class="card"><div class="tag outline"></div><div class="vtag outline"></div><div class="name outline"></div><div class="income"><span class="outline"></span></div><div class="new outline">NEW!</div><div class="full outline">HOTBAR FULL!</div><i class="shine"></i></div>')
+  // PERFECT streak badge (under the meter while aiming): "x3 STREAK +30% LUCK".
+  const streakEl = el('div', 'tu-streak outline')
+  root.append(tap, vignette, speed, bars, luck, meter, tapText, grade, streakEl, side, lucky, reveal, cont, flash, wipe)
   document.body.appendChild(root)
 
   const slider = meter.querySelector('.slider')
@@ -53,6 +55,7 @@ export function createThrowUi({ onTap, onExit, onAuto, onLucky }) {
   const tagEl = reveal.querySelector('.tag')
   const nameEl = reveal.querySelector('.name')
   const incomeEl = reveal.querySelector('.income span')
+  const vtagEl = reveal.querySelector('.vtag')
   const priceEl = lucky.querySelector('.price')
   const isTouch = () => document.body.classList.contains('touch-ui') || matchMedia('(pointer: coarse)').matches
 
@@ -174,14 +177,27 @@ export function createThrowUi({ onTap, onExit, onAuto, onLucky }) {
         }
       }, every * 1000)
     },
-    card({ rarity, name, income, isNew, full }) {
+    // variant: VARIANTS index (GOLD / DIAMOND / RAINBOW stamp); season: the season's name for a season girl.
+    card({ rarity, name, income, isNew, full, variant = 0, season = '' }) {
       const r = RARITIES[rarity]
       card.style.setProperty('--rc', r.color)
       card.style.setProperty('--rg', r.glow)
       tagEl.textContent = r.name.toUpperCase()
       nameEl.textContent = name
       incomeEl.innerHTML = `<i>$${esc(fmt(income))}</i>/s`
-      reveal.className = `tu-reveal carded r${rarity}${isNew ? ' is-new' : ''}${full ? ' is-full' : ''}`
+      const V = VARIANTS[variant]
+      vtagEl.textContent = V?.name ? `✨ ${V.name} x${V.mult}` : season ? `\u{1F389} ${season}` : ''
+      vtagEl.style.setProperty('--vc', V?.name ? V.color : '#ff9ad8')
+      reveal.className = `tu-reveal carded r${rarity}${isNew ? ' is-new' : ''}${full ? ' is-full' : ''}${vtagEl.textContent ? ' has-v' : ''}${V?.rainbow ? ' rainbow' : ''}`
+    },
+    setStreak(n, mult) {
+      streakEl.textContent = n >= 2 ? `\u{1F525} x${n} STREAK  +${Math.round((mult - 1) * 100)}% LUCK` : ''
+      streakEl.classList.toggle('on', n >= 2)
+      if (n >= 2) {
+        streakEl.classList.remove('pop')
+        void streakEl.offsetWidth
+        streakEl.classList.add('pop')
+      }
     },
     hideReveal() {
       clearInterval(typeTimer)

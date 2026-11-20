@@ -484,6 +484,53 @@ body.throw-mode .touch-root {
   60% { filter: brightness(1.4); }
   100% { transform: scale(1) rotateX(0deg); filter: brightness(1); }
 }
+/* Variant / season stamp (bottom-left corner of the card; NEW! sits bottom-right). */
+.tu-reveal .vtag {
+  position: absolute;
+  left: -4%;
+  bottom: 4%;
+  padding: 0.1em 0.6em;
+  font-size: calc(var(--u) * 2);
+  border: 0.45vmin solid #10131f;
+  border-radius: 0.4em;
+  background: linear-gradient(color-mix(in srgb, var(--vc, #ffd23a) 70%, #fff), color-mix(in srgb, var(--vc, #ffd23a) 80%, #000));
+  transform: rotate(-10deg);
+  white-space: nowrap;
+  display: none;
+}
+.tu-reveal.carded.has-v .vtag {
+  display: block;
+  animation: tu-stamp 0.45s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+.tu-reveal.rainbow .vtag {
+  background: linear-gradient(90deg, #ff5a5a, #ffd84a, #5aff8a, #5ac8ff, #c07dff);
+}
+@keyframes tu-stamp {
+  from { transform: rotate(-30deg) scale(2.4); opacity: 0; }
+  to { transform: rotate(-10deg) scale(1); opacity: 1; }
+}
+/* PERFECT streak badge (aiming). */
+.tu-streak {
+  position: absolute;
+  left: 62%;
+  top: calc(50% + min(19vh, 26vmin) + 2.2em);
+  transform: translateX(-50%);
+  font-size: calc(var(--u) * 1.8);
+  color: #ffb02a;
+  white-space: nowrap;
+  display: none;
+}
+.tu.ph-aim .tu-streak.on,
+.tu.ph-windup .tu-streak.on {
+  display: block;
+}
+.tu-streak.pop {
+  animation: tu-streakpop 0.4s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+@keyframes tu-streakpop {
+  from { transform: translateX(-50%) scale(1.8); }
+  to { transform: translateX(-50%) scale(1); }
+}
 .tu-reveal .tag {
   position: absolute;
   top: 0;
